@@ -1,8 +1,10 @@
-[gd_scene load_steps=5 format=3]
+[gd_scene load_steps=6 format=3]
 
 [ext_resource type="Script" path="res://scripts/arena.gd" id="1"]
 [ext_resource type="PackedScene" path="res://scenes/player.tscn" id="2"]
 [ext_resource type="Script" path="res://scripts/hud.gd" id="3"]
+
+[ext_resource type="PackedScene" path="res://scenes/citizen.tscn" id="4"]
 
 [sub_resource type="Environment" id="Environment_main"]
 background_mode = 1
@@ -24,6 +26,9 @@ shadow_enabled = false
 
 [node name="Player" parent="." instance=ExtResource("2")]
 position = Vector3(4, 0.1, 18)
+
+[node name="Citizen" parent="." instance=ExtResource("4")]
+position = Vector3(4, 0.1, 12)
 
 [node name="CanvasLayer" type="CanvasLayer" parent="."]
 
