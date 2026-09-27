@@ -78,6 +78,7 @@ func _ready() -> void:
 	_sign("AIR STRAFE / HOP", Vector3(-9, 2.6, -20))
 	_sign("RAMP / MOMENTUM", Vector3(8, 3.4, -16))
 	_sign("CORNFLOWER STEPS", Vector3(-13, 2.6, 18))
+	_build_manifesto()
 
 
 func _process(delta: float) -> void:
@@ -250,6 +251,31 @@ func _build_cornflower_sculpture(base: Vector3) -> void:
 	_sculpture_gem.add_child(gem)
 	gem.rotation = Vector3(deg_to_rad(45), 0, deg_to_rad(35.26))
 	_sign("CORNFLOWER TWIST", base + Vector3(0, 0.3, 1.52), 40)
+
+
+## "The Playground Manifesto", painted across the inner faces of all four
+## walls. Placed clear of the surf stairs, the wall trampoline and the sculpture.
+func _build_manifesto() -> void:
+	var inset := 27.72
+	_wall_text("THE PLAYGROUND MANIFESTO\n\nI. Momentum is sacred. Never stop moving.\nII. The floor is only a suggestion. Bounce often.", Vector3(10, 1.7, -inset), 0.0)
+	_wall_text("III. Every wall is a ramp you have not met yet.\nIV. Surf what you cannot climb.", Vector3(-19.72, 1.7, 20), 90.0)
+	_wall_text("V. Frogs are citizens too. Let them hop in peace.\nVI. Fall down, get up, jump higher.", Vector3(19.72, 1.7, 20), -90.0)
+	_wall_text("VII. There is no finish line.\nOnly the next jump.", Vector3(0, 1.7, inset), 180.0)
+
+
+## Flat text on a wall face. Label3D faces +Z, so yaw turns it toward the arena.
+func _wall_text(text: String, center: Vector3, yaw_deg: float) -> void:
+	var label := Label3D.new()
+	label.name = "Manifesto"
+	label.text = text
+	label.position = center
+	label.rotation.y = deg_to_rad(yaw_deg)
+	label.font_size = 36
+	label.outline_size = 8
+	label.pixel_size = 0.008
+	label.modulate = Color("f4e9c8")
+	label.outline_modulate = Color("1c2b33")
+	add_child(label)
 
 
 func _box(label: String, center: Vector3, dimensions: Vector3, color: Color, solid := true) -> Node3D:
