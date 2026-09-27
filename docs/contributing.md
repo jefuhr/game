@@ -23,14 +23,15 @@ Use GDScript if adding scripts, and keep the Compatibility renderer and
 single-threaded Web export working. Commit source assets and Godot `.uid` and
 `.import` metadata, but leave `.godot/` and `build/` out of commits.
 
-The initial milestone is deliberately small: a 3D test scene and deployment.
-Future gameplay and creative direction will be decided together.
+The current scene is a first-person movement playground. See
+[controls and movement](controls.md) for bindings, tuning, and mobile behavior.
 
 ## Run locally
 
 1. Install **Godot 4.7.2 (standard edition)**, matching the version pinned in CI.
 2. Import `project.godot` in Godot.
-3. Press **F5**. You should see the cube and floor.
+3. Run `python3 tools/write_build_info.py` to stamp the locally known master revision.
+4. Press **F5**, then click/tap to play or press the gamepad's bottom face button.
 
 ## Build for the browser
 
@@ -39,7 +40,9 @@ Then select **Project → Export → Web → Export Project**, or run these comm
 from the repository root with `godot` on your PATH:
 
 ```sh
+python3 tools/write_build_info.py
 godot --headless --path . --editor --import
+godot --headless --path . tests/controller_test.tscn
 mkdir -p build/web
 godot --headless --path . --export-release Web build/web/index.html
 python3 -m http.server 8000 --directory build/web
@@ -52,6 +55,20 @@ The project uses the Compatibility renderer and a single-threaded Web export.
 This supports GitHub Pages without special cross-origin isolation headers. The
 browser needs WebGL 2.0 and WebAssembly. See the
 [Godot web export documentation](https://docs.godotengine.org/en/stable/tutorials/export/exporting_for_web.html).
+
+For a phone on the same Wi-Fi network, open `http://<your-computer-LAN-IP>:8000`.
+Use the HTTPS GitHub Pages URL to test Home Screen installation. Test both
+portrait and landscape, moving/looking/jumping together, focus loss, and gamepad
+connect/disconnect. Browser emulation does not replace an actual iPhone/Android
+device check.
+
+The lower-right watermark shows `master / <8-character hash>` from build-time
+metadata. CI stamps the deployed commit on master; feature and PR builds show
+the fetched `origin/master` revision. Local stamps use the locally known
+`origin/master` (or `master` if no remote ref exists), so fetch first if you need
+the latest remote revision. Missing metadata shows `master / unstamped dev`.
+`build_info.json` is generated, ignored by Git, and explicitly included in Web
+exports. Re-run the stamp before a manual export after updating master.
 
 ## Automatic GitHub Pages deployment
 

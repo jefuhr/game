@@ -22,6 +22,11 @@ jobs:
     steps:
       - name: Check out project
         uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Stamp master revision
+        run: python3 tools/write_build_info.py
 
       - name: Install Godot and web export templates
         shell: bash
@@ -54,6 +59,9 @@ jobs:
 
       - name: Smoke test main scene
         run: godot --headless --path . --quit-after 60
+
+      - name: Test movement and input
+        run: godot --headless --path . tests/controller_test.tscn
 
       - name: Export for the web
         run: |
