@@ -47,7 +47,21 @@ const SURF_DECK_TOP := 7.5
 const SURF_STEP_COUNT := 7
 const SURF_STEP_WIDTH := 1.4
 
+## Christmas trees on open floor cells, each with chrome truck nuts dangling
+## from its lowest bough on the +Z side.
+const CHRISTMAS_TREE_SPOTS := [
+	Vector3(-4, 0, -12),
+	Vector3(-4, 0, -4),
+	Vector3(8, 0, 12),
+	Vector3(16, 0, 20),
+	Vector3(8, 0, 24),
+]
+const TRUCK_NUT_SWING_SPEED := 2.2
+const TRUCK_NUT_SWING_ANGLE := 0.35
+
 var _sculpture_gem: Node3D
+var _truck_nuts: Array[Node3D] = []
+var _truck_nut_time := 0.0
 
 
 func _ready() -> void:
@@ -75,6 +89,7 @@ func _ready() -> void:
 	_build_cornflower_sculpture(Vector3(14, 0, 14))
 	_build_trampoline_court()
 	_build_surf_ramp()
+	_build_christmas_trees()
 	_sign("AIR STRAFE / HOP", Vector3(-9, 2.6, -20))
 	_sign("RAMP / MOMENTUM", Vector3(8, 3.4, -16))
 	_sign("CORNFLOWER STEPS", Vector3(-13, 2.6, 18))
@@ -83,6 +98,9 @@ func _ready() -> void:
 func _process(delta: float) -> void:
 	if _sculpture_gem:
 		_sculpture_gem.rotate_y(SCULPTURE_SPIN_SPEED * delta)
+	_truck_nut_time += delta
+	for i in _truck_nuts.size():
+		_truck_nuts[i].rotation.x = sin(_truck_nut_time * TRUCK_NUT_SWING_SPEED + i * 1.3) * TRUCK_NUT_SWING_ANGLE
 
 
 ## Flush trampoline tiles covering 40% of the floor. One static body (in the
@@ -250,6 +268,105 @@ func _build_cornflower_sculpture(base: Vector3) -> void:
 	_sculpture_gem.add_child(gem)
 	gem.rotation = Vector3(deg_to_rad(45), 0, deg_to_rad(35.26))
 	_sign("CORNFLOWER TWIST", base + Vector3(0, 0.3, 1.52), 40)
+
+
+## Low-poly Christmas trees: stacked cones, a star, a few baubles and swinging
+## truck nuts. Meshes and materials are shared across trees; one slim cylinder
+## collider per tree keeps the foliage from being walked through.
+func _build_christmas_trees() -> void:
+	var trunk_mat := _flat_material(Color("6b4226"))
+	var needle_mat := _flat_material(Color("2f7d3a"))
+	var star_mat := _flat_material(Color("ffd84a"))
+	star_mat.emission_enabled = true
+	star_mat.emission = Color("ffd84a")
+	star_mat.emission_energy_multiplier = 0.6
+	var chrome := _flat_material(Color("d8dde3"))
+	chrome.metallic = 1.0
+	chrome.roughness = 0.2
+	var bauble_mats := [_flat_material(Color("d93a3a")), _flat_material(Color("f2f2f2")), _flat_material(Color("3a6fd9"))]
+	var trunk := BoxMesh.new()
+	trunk.size = Vector3(0.4, 0.8, 0.4)
+	trunk.material = trunk_mat
+	var tiers: Array[CylinderMesh] = []
+	for radius in [1.3, 1.0, 0.7]:
+		var cone := CylinderMesh.new()
+		cone.top_radius = 0.0
+		cone.bottom_radius = radius
+		cone.height = 1.2
+		cone.radial_segments = 8
+		cone.rings = 1
+		cone.material = needle_mat
+		tiers.append(cone)
+	var star := BoxMesh.new()
+	star.size = Vector3(0.3, 0.3, 0.3)
+	star.material = star_mat
+	var bauble := SphereMesh.new()
+	bauble.radius = 0.08
+	bauble.height = 0.16
+	bauble.radial_segments = 8
+	bauble.rings = 4
+	var hitch := BoxMesh.new()
+	hitch.size = Vector3(0.1, 0.06, 0.2)
+	hitch.material = chrome
+	var strap := BoxMesh.new()
+	strap.size = Vector3(0.03, 0.14, 0.03)
+	strap.material = chrome
+	var nut := SphereMesh.new()
+	nut.radius = 0.1
+	nut.height = 0.22
+	nut.radial_segments = 10
+	nut.rings = 5
+	nut.material = chrome
+	var bauble_spots := [
+		Vector3(0.9, 0.95, 0.4), Vector3(-0.7, 0.95, -0.6), Vector3(-0.5, 0.95, 0.8),
+		Vector3(0.55, 1.75, -0.45), Vector3(-0.6, 1.75, 0.2), Vector3(0.15, 2.5, 0.45),
+	]
+	for base in CHRISTMAS_TREE_SPOTS:
+		var tree := StaticBody3D.new()
+		tree.name = "ChristmasTree"
+		tree.position = base
+		tree.rotation.y = randf_range(-0.4, 0.4)
+		add_child(tree)
+		var shape := CylinderShape3D.new()
+		shape.radius = 0.45
+		shape.height = 3.4
+		var collider := CollisionShape3D.new()
+		collider.shape = shape
+		collider.position = Vector3(0, 1.7, 0)
+		tree.add_child(collider)
+		_mesh_part(tree, trunk, Vector3(0, 0.4, 0))
+		for i in tiers.size():
+			_mesh_part(tree, tiers[i], Vector3(0, 1.3 + i * 0.75, 0))
+		var topper := _mesh_part(tree, star, Vector3(0, 3.55, 0))
+		topper.rotation = Vector3(deg_to_rad(45), 0, deg_to_rad(35.26))
+		for i in bauble_spots.size():
+			var ball := _mesh_part(tree, bauble, bauble_spots[i])
+			ball.material_override = bauble_mats[i % bauble_mats.size()]
+		# Truck nuts: a chrome hitch under the lowest bough, with the pair on a pivot.
+		_mesh_part(tree, hitch, Vector3(0, 0.68, 1.15))
+		var pivot := Node3D.new()
+		pivot.name = "TruckNuts"
+		pivot.position = Vector3(0, 0.65, 1.22)
+		tree.add_child(pivot)
+		_mesh_part(pivot, strap, Vector3(0, -0.07, 0))
+		for side in [-1.0, 1.0]:
+			_mesh_part(pivot, nut, Vector3(side * 0.085, -0.22, 0))
+		_truck_nuts.append(pivot)
+
+
+func _mesh_part(parent: Node3D, mesh: Mesh, center: Vector3) -> MeshInstance3D:
+	var instance := MeshInstance3D.new()
+	instance.mesh = mesh
+	instance.position = center
+	parent.add_child(instance)
+	return instance
+
+
+func _flat_material(color: Color) -> StandardMaterial3D:
+	var material := StandardMaterial3D.new()
+	material.albedo_color = color
+	material.roughness = 1.0
+	return material
 
 
 func _box(label: String, center: Vector3, dimensions: Vector3, color: Color, solid := true) -> Node3D:
