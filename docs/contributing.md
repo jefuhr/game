@@ -50,6 +50,7 @@ from the repository root with `godot` on your PATH:
 python3 tools/write_build_info.py
 godot --headless --path . --editor --import
 godot --headless --path . tests/controller_test.tscn
+godot --headless --path . tests/citizen_test.tscn
 mkdir -p build/web
 godot --headless --path . --export-release Web build/web/index.html
 python3 -m http.server 8000 --directory build/web

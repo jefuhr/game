@@ -6,3 +6,6 @@ A fun, community-made 3D game built with Godot by the TFPP community.
 
 First-person movement with keyboard/mouse, gamepad, and automatic mobile touch
 controls. See [controls and mobile setup](docs/controls.md).
+
+An original Half-Life 2-inspired citizen wanders the playground, with animated
+limbs, occasional pauses, obstacle avoidance, and solid player/world collisions.
