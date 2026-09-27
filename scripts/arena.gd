@@ -47,6 +47,32 @@ const SURF_DECK_TOP := 7.5
 const SURF_STEP_COUNT := 7
 const SURF_STEP_WIDTH := 1.4
 
+const FROG_SCENE := preload("res://scenes/frog.tscn")
+## Frogs are scattered at startup with Poisson disc sampling: no two start
+## closer than FROG_SPACING, and the gaps are filled evenly. The spacing sets
+## roughly how many fit (about 30); FROG_MAX caps the count for mobile.
+const FROG_SPACING := 6.0
+const FROG_MAX := 32
+const FROG_SPAWN_HEIGHT := 0.1
+## Floor area (x, z) frogs may start in, inset from the walls.
+const FROG_AREA := Rect2(-18.5, -26.5, 37, 53)
+## Footprints (x, z) of solid props frogs must not start inside, plus some
+## room around the player's and citizen's start spots.
+const FROG_KEEP_OUT := [
+	Rect2(-11, -12.75, 4, 19.5), # Jump blocks
+	Rect2(4.5, -15.5, 7, 13.5), # Platform and ramp
+	Rect2(-1.2, -19.2, 2.4, 2.4), # Pillars
+	Rect2(-1.2, -5.2, 2.4, 2.4),
+	Rect2(-1.2, 8.8, 2.4, 2.4),
+	Rect2(-16, 15, 6, 6), # Cornflower steps
+	Rect2(12, 12, 4, 4), # Cornflower sculpture
+	Rect2(11.5, 1.5, 5, 5), # Trampoline tower
+	Rect2(13, -6, 7, 4), # Slope and wall trampolines
+	Rect2(-20, -28, 18.5, 5.5), # Surf deck and stairs
+	Rect2(2.5, 16.5, 3, 3), # Player start
+	Rect2(2.5, 10.5, 3, 3), # Citizen start
+]
+
 var _sculpture_gem: Node3D
 
 
@@ -78,6 +104,7 @@ func _ready() -> void:
 	_sign("AIR STRAFE / HOP", Vector3(-9, 2.6, -20))
 	_sign("RAMP / MOMENTUM", Vector3(8, 3.4, -16))
 	_sign("CORNFLOWER STEPS", Vector3(-13, 2.6, 18))
+	_spawn_frogs()
 
 
 func _process(delta: float) -> void:
@@ -250,6 +277,80 @@ func _build_cornflower_sculpture(base: Vector3) -> void:
 	_sculpture_gem.add_child(gem)
 	gem.rotation = Vector3(deg_to_rad(45), 0, deg_to_rad(35.26))
 	_sign("CORNFLOWER TWIST", base + Vector3(0, 0.3, 1.52), 40)
+
+
+## Places frogs at Poisson disc samples of the open floor, in a fresh
+## arrangement every run.
+func _spawn_frogs() -> void:
+	var rng := RandomNumberGenerator.new()
+	rng.randomize()
+	var spots := _poisson_disc(FROG_AREA, FROG_SPACING, rng)
+	for i in range(spots.size() - 1, 0, -1):
+		var j := rng.randi_range(0, i)
+		var swap := spots[i]
+		spots[i] = spots[j]
+		spots[j] = swap
+	for i in mini(spots.size(), FROG_MAX):
+		var frog: Node3D = FROG_SCENE.instantiate()
+		frog.name = "Frog" if i == 0 else "Frog%d" % (i + 1)
+		frog.position = Vector3(spots[i].x, FROG_SPAWN_HEIGHT, spots[i].y)
+		add_child(frog)
+
+
+## Bridson's Poisson disc sampling: grows from one random seed point, trying
+## candidates in the ring between spacing and twice the spacing around active
+## points. A background grid of spacing / sqrt(2) cells holds at most one
+## sample each, so neighbor checks stay local.
+func _poisson_disc(area: Rect2, spacing: float, rng: RandomNumberGenerator, attempts := 30) -> Array[Vector2]:
+	var cell := spacing / sqrt(2.0)
+	var columns := int(ceil(area.size.x / cell))
+	var rows := int(ceil(area.size.y / cell))
+	var grid: Array[int] = []
+	grid.resize(columns * rows)
+	grid.fill(-1)
+	var points: Array[Vector2] = []
+	var active: Array[int] = []
+	for attempt in 100:
+		var seed_point := area.position + Vector2(rng.randf() * area.size.x, rng.randf() * area.size.y)
+		if _frog_spot_open(seed_point):
+			var gx := int((seed_point.x - area.position.x) / cell)
+			var gy := int((seed_point.y - area.position.y) / cell)
+			grid[gy * columns + gx] = 0
+			active.append(0)
+			points.append(seed_point)
+			break
+	while not active.is_empty():
+		var index := rng.randi_range(0, active.size() - 1)
+		var origin := points[active[index]]
+		var found := false
+		for attempt in attempts:
+			var candidate := origin + Vector2.from_angle(rng.randf() * TAU) * rng.randf_range(spacing, spacing * 2.0)
+			if not area.has_point(candidate) or not _frog_spot_open(candidate):
+				continue
+			var gx := int((candidate.x - area.position.x) / cell)
+			var gy := int((candidate.y - area.position.y) / cell)
+			var clear := true
+			for y in range(maxi(gy - 2, 0), mini(gy + 3, rows)):
+				for x in range(maxi(gx - 2, 0), mini(gx + 3, columns)):
+					var other := grid[y * columns + x]
+					if other >= 0 and points[other].distance_to(candidate) < spacing:
+						clear = false
+			if clear:
+				grid[gy * columns + gx] = points.size()
+				active.append(points.size())
+				points.append(candidate)
+				found = true
+				break
+		if not found:
+			active.remove_at(index)
+	return points
+
+
+func _frog_spot_open(spot: Vector2) -> bool:
+	for zone in FROG_KEEP_OUT:
+		if zone.has_point(spot):
+			return false
+	return true
 
 
 func _box(label: String, center: Vector3, dimensions: Vector3, color: Color, solid := true) -> Node3D:
