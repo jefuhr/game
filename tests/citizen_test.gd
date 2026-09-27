@@ -20,7 +20,7 @@ func _ready() -> void:
 
 
 func run() -> void:
-	var world := preload("res://scenes/main.tscn").instantiate()
+	var world := preload("res://scenes/playground.tscn").instantiate()
 	add_child(world)
 	var citizen: CharacterBody3D = world.get_node("Citizen")
 	var player: CharacterBody3D = world.get_node("Player")

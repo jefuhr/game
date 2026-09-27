@@ -2,6 +2,18 @@
 
 Click or tap the scene to start. A gamepad's bottom face button also starts play.
 
+## Level One: The East River Hop
+
+The default scene is a beginner crossing from Lower Manhattan to DUMBO.
+Follow the gold roof arrows and jump at the gold edges. Every ferry roof reached
+in order saves a checkpoint. Falling in the water, pressing R / Back, or using
+the pause screen's CHECKPOINT button returns you to that safe roof.
+Finish at the DUMBO pier after all seven ferries. Click, tap, press gamepad A,
+or use PLAY AGAIN to restart after completion. The clock is informational;
+there is no time limit or penalty for falling. Pausing also pauses the clock.
+
+The movement laboratory described below remains in `scenes/playground.tscn`.
+
 | Input | Move | Look | Jump | Pause | Respawn | Music |
 | --- | --- | --- | --- | --- | --- | --- |
 | Keyboard/mouse | WASD or arrows | Captured mouse | Space | Escape | R | M or MUSIC button |

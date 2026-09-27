@@ -16,10 +16,16 @@ var look_position := Vector2.ZERO
 var _was_touch := false
 var _was_playing := false
 var master_watermark := "master / unstamped dev"
+@onready var hud_font: Font = ThemeDB.fallback_font.duplicate()
 @onready var player: CharacterBody3D = get_node("../../Player")
+@onready var level: Node3D = get_node("../..")
+@onready var is_crossing: bool = level.has_method("time_text")
 
 
 func _ready() -> void:
+	if is_crossing and hud_font is FontFile:
+		# Manual canvas scaling otherwise enlarges low-resolution glyph caches.
+		hud_font.oversampling = 2.0
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	if OS.has_feature("web"):
 		_browser = JavaScriptBridge.get_interface("window")
@@ -52,6 +58,13 @@ func _process(delta: float) -> void:
 func _resize_layout() -> void:
 	# Portrait should retain thumb-sized controls instead of shrinking a desktop HUD.
 	ui_scale = clampf(size.y / maxf(size.x, 1.0), 1.0, 2.0)
+	if is_crossing and _browser != null:
+		# The Web canvas uses device pixels; targets must be sized in CSS pixels.
+		var area = JSON.parse_string(_browser.getGameSafeArea())
+		if area is Dictionary and float(area.get("width", 0)) > 0:
+			ui_scale = maxf(1.0, size.x / float(area["width"]))
+	elif is_crossing and DisplayServer.get_name() != "headless":
+		ui_scale = maxf(1.0, 1.0 / maxf(get_viewport().get_screen_transform().get_scale().x, 0.01))
 	ui_size = size / ui_scale
 	_update_safe_area()
 	_clear_fingers()
@@ -81,19 +94,27 @@ func _clear_fingers() -> void:
 
 
 func touch_button() -> Rect2:
+	if is_crossing:
+		return Rect2(safe_bounds.end.x - 134, safe_bounds.position.y + 16, 112, 44)
 	return Rect2(safe_bounds.end.x - 208, safe_bounds.position.y + 20, 184, 64)
 
 
 func pause_button() -> Rect2:
+	if is_crossing:
+		return Rect2(safe_bounds.end.x - 190, safe_bounds.position.y + 16, 44, 44)
 	return Rect2(safe_bounds.end.x - 296, safe_bounds.position.y + 20, 76, 64)
 
 
 ## Sits just below the header so it never collides with the title in portrait.
 func music_button() -> Rect2:
+	if is_crossing:
+		return Rect2(safe_bounds.end.x - 134, safe_bounds.position.y + 66, 112, 44)
 	return Rect2(safe_bounds.end.x - 208, safe_bounds.position.y + 116, 184, 52)
 
 
 func reset_button() -> Rect2:
+	if is_crossing and ui_size.y < 540:
+		return Rect2(ui_size.x * 0.5 - 90, safe_bounds.end.y - 80, 180, 64)
 	return Rect2(ui_size.x * 0.5 - 90, ui_size.y * 0.5 + 125, 180, 64)
 
 
@@ -159,7 +180,10 @@ func _button_press(point: Vector2) -> bool:
 		_clear_fingers()
 		return true
 	if not Controls.playing and reset_button().has_point(point):
+		var replay: bool = is_crossing and level.completed
 		Controls.reset_requested.emit()
+		if replay:
+			Controls.start(Controls.device == Controls.Device.KEYBOARD)
 		return true
 	return false
 
@@ -177,7 +201,10 @@ func _release_finger(index: int) -> void:
 
 func _draw() -> void:
 	draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE * ui_scale)
-	var font := ThemeDB.fallback_font
+	if is_crossing:
+		_draw_crossing()
+		return
+	var font := hud_font
 	var header_bottom := safe_bounds.position.y + 104
 	draw_rect(Rect2(0, 0, ui_size.x, header_bottom), Color(0.025, 0.045, 0.07, 0.8))
 	draw_string(font, safe_bounds.position + Vector2(28, 42), ("TFPP / MOVE LAB" if safe_bounds.size.x < 720 else "TFPP / MOVEMENT LAB"), HORIZONTAL_ALIGNMENT_LEFT, -1, 22, ACCENT)
@@ -222,8 +249,8 @@ func _draw_touch() -> void:
 	draw_circle(center + Controls.touch_move * 56, 28, Color(0.34, 0.94, 0.76, 0.65))
 	draw_circle(jump_center(), 62, Color(0.06, 0.1, 0.14, 0.6))
 	draw_arc(jump_center(), 62, 0, TAU, 48, ACCENT, 2, true)
-	draw_string(ThemeDB.fallback_font, jump_center() + Vector2(-26, 7), "JUMP", HORIZONTAL_ALIGNMENT_LEFT, -1, 20, INK)
-	draw_string(ThemeDB.fallback_font, Vector2(safe_bounds.position.x + safe_bounds.size.x * 0.63, safe_bounds.end.y - 42), "DRAG TO LOOK", HORIZONTAL_ALIGNMENT_LEFT, -1, 16, INK)
+	draw_string(hud_font, jump_center() + Vector2(-26, 7), "JUMP", HORIZONTAL_ALIGNMENT_LEFT, -1, 20, INK)
+	draw_string(hud_font, Vector2(safe_bounds.position.x + safe_bounds.size.x * 0.63, safe_bounds.end.y - 42), "DRAG TO LOOK", HORIZONTAL_ALIGNMENT_LEFT, -1, 16, INK)
 
 
 func _button(rect: Rect2, label: String) -> void:
@@ -231,12 +258,74 @@ func _button(rect: Rect2, label: String) -> void:
 	style.bg_color = Color(0.1, 0.17, 0.21, 0.95)
 	style.set_corner_radius_all(12)
 	draw_style_box(style, rect)
-	var font := ThemeDB.fallback_font
-	var width := font.get_string_size(label, HORIZONTAL_ALIGNMENT_LEFT, -1, 18).x
-	draw_string(font, rect.get_center() + Vector2(-width * 0.5, 6), label, HORIZONTAL_ALIGNMENT_LEFT, -1, 18, INK)
+	var font := hud_font
+	var font_size := 14 if rect.size.x < 150 else 18
+	var width := font.get_string_size(label, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size).x
+	draw_string(font, rect.get_center() + Vector2(-width * 0.5, 6), label, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size, INK)
 
 
 func _centered(label: String, y: float, font_size: int, color: Color) -> void:
-	var font := ThemeDB.fallback_font
+	var font := hud_font
 	var width := font.get_string_size(label, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size).x
 	draw_string(font, Vector2((ui_size.x - width) * 0.5, y), label, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size, color)
+
+
+func _crossing_line(words: String, y: float, font_size: int, color: Color) -> void:
+	var width := hud_font.get_string_size(words, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size).x
+	var fitted := clampi(int(font_size * (safe_bounds.size.x - 40) / maxf(width, 1)), 1, font_size)
+	_centered(words, y, fitted, color)
+
+
+func _draw_crossing() -> void:
+	var font := hud_font
+	var gold := Color("ffd079")
+	var left := safe_bounds.position + Vector2(22, 36)
+	draw_rect(Rect2(0, 0, ui_size.x, safe_bounds.position.y + 116), Color(0.04, 0.12, 0.16, 0.9))
+	draw_string(font, left, "01 / EAST RIVER", HORIZONTAL_ALIGNMENT_LEFT, -1, 18, gold)
+	draw_string(font, left + Vector2(0, 24), "MANHATTAN / DUMBO", HORIZONTAL_ALIGNMENT_LEFT, -1, 13, INK)
+	var status := "FERRY %d / 7   ·   %s" % [level.checkpoint, level.time_text()]
+	draw_string(font, left + Vector2(0, 53), status, HORIZONTAL_ALIGNMENT_LEFT, -1, 14, INK)
+	for i in range(7):
+		draw_circle(left + Vector2(5 + i * 21, 67), 3.5, ACCENT if i < level.checkpoint else Color(0.5, 0.65, 0.7, 0.6))
+	_button(touch_button(), "TOUCH: " + ("ON" if Controls.force_touch else "AUTO"))
+	if Controls.playing:
+		_button(pause_button(), "II")
+		var center := ui_size * 0.5
+		draw_circle(center, 2.5, INK)
+		if Controls.touch_visible():
+			_draw_touch()
+		else:
+			var hint := "WASD move   ·   SPACE jump   ·   R checkpoint   ·   ESC pause"
+			if Controls.device == Controls.Device.GAMEPAD:
+				hint = "LEFT STICK move   ·   A jump   ·   BACK checkpoint   ·   START pause"
+			draw_rect(Rect2(0, safe_bounds.end.y - 59, ui_size.x, 59), Color(0.04, 0.12, 0.16, 0.85))
+			_crossing_line(hint, safe_bounds.end.y - 34, 16, INK)
+		if level.notice_time > 0:
+			draw_rect(Rect2(0, safe_bounds.position.y + 116, ui_size.x, 36), Color(0.04, 0.12, 0.16, 0.7))
+			_crossing_line(level.notice, safe_bounds.position.y + 140, 17, gold)
+	else:
+		draw_rect(Rect2(0, safe_bounds.position.y + 116, ui_size.x, ui_size.y), Color(0.025, 0.08, 0.11, 0.68))
+		var compact := ui_size.y < 540
+		var cy := ui_size.y * 0.5 if not compact else safe_bounds.position.y + 149 + 76
+		var spacing := 0.72 if compact else 1.0
+		var title_y := cy - 76
+		if level.completed:
+			_crossing_line("HELLO, BROOKLYN.", title_y, 28 if compact else 40, gold)
+			_crossing_line("Level one complete", title_y + 49 * spacing, 22, INK)
+			_crossing_line("7 ferries  ·  " + level.time_text() + "  ·  %d splashes" % level.falls, title_y + 90 * spacing, 20, INK)
+			_crossing_line("You made it from Manhattan to DUMBO.", title_y + 130 * spacing, 18, INK)
+			_crossing_line("Click / tap or press A to cross again", title_y + 168 * spacing, 18, gold)
+			_button(reset_button(), "PLAY AGAIN")
+		else:
+			_crossing_line("THE EAST RIVER HOP", title_y, 28 if compact else 38, INK)
+			_crossing_line("Lower Manhattan to DUMBO", title_y + 43 * spacing, 23, gold)
+			_crossing_line("Seven ferries. Short jumps. Take your time.", title_y + 82 * spacing, 18, INK)
+			_crossing_line("Jump at the gold edges. Every ferry saves your spot.", title_y + 112 * spacing, 17, INK)
+			_crossing_line("Click / tap to play  ·  Gamepad A to start", title_y + 152 * spacing, 20, gold)
+			_crossing_line("Touch: drag left to move, right to look, JUMP to hop", title_y + 180 * spacing, 15, INK)
+			_button(reset_button(), "CHECKPOINT")
+	_button(music_button(), "MUSIC: " + ("OFF" if Music.muted else "ON"))
+	var watermark_width := font.get_string_size(master_watermark, HORIZONTAL_ALIGNMENT_LEFT, -1, 12).x
+	var watermark_position := safe_bounds.end - Vector2(watermark_width + 16, 10)
+	draw_rect(Rect2(watermark_position - Vector2(5, 14), Vector2(watermark_width + 10, 20)), Color(0.02, 0.04, 0.06, 0.6))
+	draw_string(font, watermark_position, master_watermark, HORIZONTAL_ALIGNMENT_LEFT, -1, 12, Color(0.9, 0.96, 1, 0.65))
