@@ -52,6 +52,21 @@ Stick look uses angular speed multiplied by elapsed time.
 Sensitivity values live in `scripts/controls.gd`. The test arena has ramps,
 jump blocks, pillars, walls, a speed readout, and a fall-triggered respawn.
 
+## Trampolines
+
+The pink cuboids in the **TRAMPOLINES** court (right side of the arena) launch
+the player. There is a floor pad under a ceiling pad, a slope facing the right
+wall, and a pad mounted on that wall. Any `StaticBody3D` in the `trampoline`
+group works at any orientation: its local +Y face is the bouncy side, and its
+other faces are solid. Add more with `_trampoline()` in `scripts/arena.gd`.
+
+On contact, the player's velocity into the face is replaced by a launch along the
+face normal; speed along the surface is kept. Launch speed is
+`trampoline_min_launch + impact × trampoline_restitution` (6 m/s + 0.6 × impact),
+capped at `trampoline_max_launch` (24 m/s), so harder impacts launch harder.
+Bouncing between the floor and ceiling pads escalates up to the cap; air-strafe
+out or press respawn. Floor pads are raised, so jump onto them.
+
 ## iOS fullscreen
 
 iPhone Safari does not reliably support requesting fullscreen for an arbitrary
