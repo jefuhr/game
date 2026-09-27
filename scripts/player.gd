@@ -18,15 +18,26 @@ const SURF_GROUP := &"surf"
 @export var trampoline_restitution := 0.6
 @export var trampoline_max_launch := 24.0
 
+## Frogs this close (horizontally) and roughly ahead can be put on as a hat.
+@export var hat_reach := 2.2
+
 @onready var camera: Camera3D = $Camera3D
+@onready var hat_mount: Node3D = $Hat
 var spawn_position := Vector3.ZERO
+## The frog currently worn, or null.
+var hat: Node3D
 var _jump_was_held := false
 var _bounced := false
+var _base_stats := {}
 
 
 func _ready() -> void:
 	spawn_position = position
+	_base_stats = {"max_speed": max_speed, "jump_speed": jump_speed, "gravity": gravity,
+		"trampoline_min_launch": trampoline_min_launch, "trampoline_restitution": trampoline_restitution,
+		"trampoline_max_launch": trampoline_max_launch}
 	Controls.reset_requested.connect(respawn)
+	Controls.hat_requested.connect(toggle_hat)
 
 
 func _physics_process(delta: float) -> void:
@@ -123,6 +134,68 @@ func apply_friction(delta: float) -> void:
 	var next_speed := maxf(speed - maxf(speed, stop_speed) * friction * delta, 0.0)
 	velocity.x *= next_speed / speed
 	velocity.z *= next_speed / speed
+
+
+## The nearest free frog within reach in front of the player, or null.
+func frog_in_reach() -> Node3D:
+	var forward := -global_basis.z
+	forward.y = 0.0
+	forward = forward.normalized()
+	var best: Node3D = null
+	var best_distance := INF
+	for frog: Node3D in get_tree().get_nodes_in_group(&"frog"):
+		if frog.worn:
+			continue
+		var offset := frog.global_position - global_position
+		if absf(offset.y) > 2.0:
+			continue
+		offset.y = 0.0
+		var distance := offset.length()
+		# Frogs right at the feet count from any direction.
+		if distance > hat_reach or (distance > 0.6 and forward.dot(offset / distance) < 0.5):
+			continue
+		if distance < best_distance:
+			best = frog
+			best_distance = distance
+	return best
+
+
+## Puts on the frog in reach, swapping out any current hat, or takes the hat off.
+func toggle_hat() -> void:
+	var frog := frog_in_reach()
+	if hat != null:
+		_take_off_hat()
+	if frog != null:
+		hat = frog
+		frog.put_on(hat_mount)
+	_apply_hat()
+
+
+func _take_off_hat() -> void:
+	var forward := -global_basis.z
+	forward.y = 0.0
+	forward = forward.normalized()
+	var drop := global_position + forward * 0.9 + Vector3.UP * 0.3
+	if test_move(global_transform, forward * 1.0):
+		# No room ahead: the frog hops off the top of the head instead.
+		drop = global_position + Vector3.UP * 1.9
+	hat.take_off(drop, forward)
+	hat = null
+
+
+## Resets movement stats, then applies the worn frog's multipliers.
+func _apply_hat() -> void:
+	var effects: Dictionary = hat.info() if hat != null else {}
+	for stat: String in _base_stats:
+		set(stat, _base_stats[stat])
+	max_speed *= effects.get("speed", 1.0)
+	# Jump height scales with speed squared, so "jump" multiplies height directly.
+	jump_speed *= sqrt(effects.get("jump", 1.0))
+	gravity *= effects.get("gravity", 1.0)
+	var bounce: float = effects.get("bounce", 1.0)
+	trampoline_min_launch *= bounce
+	trampoline_restitution *= bounce
+	trampoline_max_launch *= bounce
 
 
 func respawn() -> void:

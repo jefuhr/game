@@ -101,6 +101,11 @@ func jump_center() -> Vector2:
 	return safe_bounds.end - Vector2(106, 116)
 
 
+## Touch-only button stacked above the jump pad.
+func hat_center() -> Vector2:
+	return jump_center() - Vector2(0, 118)
+
+
 func _input(event: InputEvent) -> void:
 	if event is InputEventScreenTouch:
 		var point: Vector2 = event.position / ui_scale
@@ -154,6 +159,9 @@ func _button_press(point: Vector2) -> bool:
 	if music_button().has_point(point):
 		Music.toggle_mute()
 		return true
+	if Controls.playing and Controls.touch_visible() and point.distance_to(hat_center()) <= 44:
+		Controls.hat_requested.emit()
+		return true
 	if Controls.playing and pause_button().has_point(point):
 		Controls.pause()
 		_clear_fingers()
@@ -190,12 +198,13 @@ func _draw() -> void:
 		var center := ui_size * 0.5
 		draw_line(center - Vector2(6, 0), center + Vector2(6, 0), INK, 2)
 		draw_line(center - Vector2(0, 6), center + Vector2(0, 6), INK, 2)
+		_draw_hat(header_bottom)
 		if Controls.touch_visible():
 			_draw_touch()
 		else:
-			var hint := "WASD / MOVE     MOUSE / LOOK     SPACE / HOP     ESC / PAUSE     R / RESET     M / MUSIC"
+			var hint := "WASD / MOVE    MOUSE / LOOK    SPACE / HOP    E / FROG HAT    ESC / PAUSE    R / RESET    M / MUSIC"
 			if Controls.device == Controls.Device.GAMEPAD:
-				hint = "LEFT STICK / MOVE     RIGHT STICK / LOOK     A / HOP     START / PAUSE"
+				hint = "LEFT STICK / MOVE     RIGHT STICK / LOOK     A / HOP     X / FROG HAT     START / PAUSE"
 			draw_rect(Rect2(0, safe_bounds.end.y - 50, ui_size.x, ui_size.y - safe_bounds.end.y + 50), Color(0.025, 0.045, 0.07, 0.8))
 			_centered(hint, safe_bounds.end.y - 32, 16, INK)
 	else:
@@ -215,6 +224,32 @@ func _draw() -> void:
 	draw_string(font, watermark_position, master_watermark, HORIZONTAL_ALIGNMENT_LEFT, -1, 16, Color(0.9, 0.96, 1, 0.65))
 
 
+## Worn-hat panel under the header, plus a prompt under the crosshair when a frog is in reach.
+func _draw_hat(header_bottom: float) -> void:
+	var font := ThemeDB.fallback_font
+	if player.hat != null:
+		var worn: Dictionary = player.hat.info()
+		var title := "HAT: %s  ·  %s" % [worn["name"].to_upper(), worn["rarity"].to_upper()]
+		var width := maxf(font.get_string_size(title, HORIZONTAL_ALIGNMENT_LEFT, -1, 18).x,
+			font.get_string_size(worn["summary"], HORIZONTAL_ALIGNMENT_LEFT, -1, 16).x)
+		var corner := Vector2(safe_bounds.position.x + 20, header_bottom + 12)
+		draw_rect(Rect2(corner, Vector2(width + 24, 58)), Color(0.025, 0.045, 0.07, 0.8))
+		draw_rect(Rect2(corner, Vector2(6, 58)), worn["skin"])
+		draw_string(font, corner + Vector2(16, 24), title, HORIZONTAL_ALIGNMENT_LEFT, -1, 18, worn["skin"].lightened(0.3))
+		draw_string(font, corner + Vector2(16, 48), worn["summary"], HORIZONTAL_ALIGNMENT_LEFT, -1, 16, INK)
+	var frog: Node3D = player.frog_in_reach()
+	if frog == null:
+		return
+	var nearby: Dictionary = frog.info()
+	var key := "E"
+	if Controls.touch_visible():
+		key = "HAT"
+	elif Controls.device == Controls.Device.GAMEPAD:
+		key = "X"
+	var prompt := "%s / WEAR %s (%s)" % [key, nearby["name"].to_upper(), nearby["rarity"].to_upper()]
+	_centered(prompt, ui_size.y * 0.5 + 44, 18, nearby["skin"].lightened(0.35))
+
+
 func _draw_touch() -> void:
 	var center := Vector2(safe_bounds.position.x + 132, safe_bounds.end.y - 132) if move_finger == -1 else move_origin
 	draw_circle(center, 76, Color(0.06, 0.1, 0.14, 0.45))
@@ -223,6 +258,9 @@ func _draw_touch() -> void:
 	draw_circle(jump_center(), 62, Color(0.06, 0.1, 0.14, 0.6))
 	draw_arc(jump_center(), 62, 0, TAU, 48, ACCENT, 2, true)
 	draw_string(ThemeDB.fallback_font, jump_center() + Vector2(-26, 7), "JUMP", HORIZONTAL_ALIGNMENT_LEFT, -1, 20, INK)
+	draw_circle(hat_center(), 44, Color(0.06, 0.1, 0.14, 0.6))
+	draw_arc(hat_center(), 44, 0, TAU, 40, ACCENT, 2, true)
+	draw_string(ThemeDB.fallback_font, hat_center() + Vector2(-18, 6), "HAT", HORIZONTAL_ALIGNMENT_LEFT, -1, 18, INK)
 	draw_string(ThemeDB.fallback_font, Vector2(safe_bounds.position.x + safe_bounds.size.x * 0.63, safe_bounds.end.y - 42), "DRAG TO LOOK", HORIZONTAL_ALIGNMENT_LEFT, -1, 16, INK)
 
 

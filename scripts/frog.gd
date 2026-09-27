@@ -7,6 +7,25 @@ extends CharacterBody3D
 const PROBE_LIFT := 0.06
 const GRAVITY := 20.0
 
+enum Kind { GREEN, BLUE, RED, PURPLE, GOLDEN }
+## Kinds are rolled by weight (out of 100). Worn as a hat, a frog's multipliers
+## apply to the player: "jump" scales jump height, "speed" run speed, "gravity"
+## fall acceleration and "bounce" trampoline launches. Frogs hop the same way.
+const KINDS := {
+	Kind.GREEN: {"name": "Green Frog", "rarity": "Common", "weight": 50, "skin": Color("4f9d3a"),
+		"summary": "Just a very nice hat."},
+	Kind.BLUE: {"name": "Blue Frog", "rarity": "Uncommon", "weight": 24, "skin": Color("2f7fd8"),
+		"speed": 1.25, "summary": "Run 25% faster."},
+	Kind.RED: {"name": "Red Frog", "rarity": "Uncommon", "weight": 14, "skin": Color("d8452f"),
+		"bounce": 1.5, "summary": "Trampolines launch you higher."},
+	Kind.PURPLE: {"name": "Purple Frog", "rarity": "Rare", "weight": 8, "skin": Color("8a4fd0"),
+		"gravity": 0.7, "summary": "Floaty low gravity."},
+	Kind.GOLDEN: {"name": "Golden Frog", "rarity": "Legendary", "weight": 4, "skin": Color("e8b923"),
+		"jump": 2.0, "summary": "Jump twice as high."},
+}
+
+## Which kind this frog is; -1 rolls a random kind by rarity.
+@export var kind := -1
 ## Horizontal speed of a hop.
 @export var hop_speed := 2.5
 ## Upward speed at the start of a hop.
@@ -23,11 +42,24 @@ var _squash := 0.0
 var _visual: Node3D
 var _body: Node3D
 var _back_legs: Array[Node3D] = []
+var _gravity := GRAVITY
+var _home: Node
+## True while sitting on someone's head; physics and collision are off.
+var worn := false
 
 
 func _ready() -> void:
+	add_to_group(&"frog")
 	_random.randomize()
 	_spawn = position
+	_home = get_parent()
+	if not KINDS.has(kind):
+		kind = _roll_kind()
+	var stats := info()
+	hop_speed *= stats.get("speed", 1.0)
+	hop_height *= sqrt(stats.get("jump", 1.0))
+	trampoline_hop_speed *= stats.get("bounce", 1.0)
+	_gravity *= stats.get("gravity", 1.0)
 	_build_frog()
 	var angle := _random.randf_range(-PI, PI)
 	_direction = Vector3(sin(angle), 0, cos(angle))
@@ -36,7 +68,7 @@ func _ready() -> void:
 
 
 func _physics_process(delta: float) -> void:
-	if not Controls.playing:
+	if not Controls.playing or worn:
 		return
 	# The floor state from a trampoline hop is stale: treat that frame as airborne.
 	var grounded := is_on_floor() and not _bounced
@@ -52,7 +84,7 @@ func _physics_process(delta: float) -> void:
 		if _rest_time <= 0.0:
 			_start_hop()
 	else:
-		velocity.y -= GRAVITY * delta
+		velocity.y -= _gravity * delta
 	var incoming_y := velocity.y
 	move_and_slide()
 	_bounced = _hop_on_trampolines(incoming_y)
@@ -64,6 +96,50 @@ func _physics_process(delta: float) -> void:
 		_bounced = false
 		_hopping = false
 	_animate(delta)
+
+
+func info() -> Dictionary:
+	return KINDS[kind]
+
+
+func _roll_kind() -> int:
+	var roll := _random.randi_range(1, 100)
+	for candidate: int in KINDS:
+		roll -= KINDS[candidate]["weight"]
+		if roll <= 0:
+			return candidate
+	return Kind.GREEN
+
+
+## Sits on `head` facing the same way; the frog stops hopping and colliding.
+func put_on(head: Node3D) -> void:
+	worn = true
+	velocity = Vector3.ZERO
+	_hopping = false
+	_bounced = false
+	_squash = 0.0
+	$CollisionShape3D.set_deferred(&"disabled", true)
+	reparent(head, false)
+	transform = Transform3D.IDENTITY
+	_direction = Vector3.FORWARD
+	_visual.rotation.y = 0.0
+	_body.scale = Vector3.ONE
+	for leg in _back_legs:
+		leg.rotation.x = 0.0
+
+
+## Hops off the head back into the world at `where`, heading along `facing`.
+func take_off(where: Vector3, facing: Vector3) -> void:
+	worn = false
+	reparent(_home, false)
+	transform = Transform3D.IDENTITY
+	global_position = where
+	velocity = Vector3.ZERO
+	_hopping = true
+	_direction = facing
+	_visual.rotation.y = atan2(-facing.x, -facing.z)
+	_rest_time = _random.randf_range(0.6, 1.5)
+	$CollisionShape3D.set_deferred(&"disabled", false)
 
 
 func _start_hop() -> void:
@@ -125,7 +201,11 @@ func _build_frog() -> void:
 	_body = Node3D.new()
 	_body.name = "Body"
 	_visual.add_child(_body)
-	var skin := Color("4f9d3a").lerp(Color("8fae2e"), _random.randf_range(0.0, 0.6))
+	var skin: Color = info()["skin"]
+	if kind == Kind.GREEN:
+		skin = skin.lerp(Color("8fae2e"), _random.randf_range(0.0, 0.6))
+	else:
+		skin = skin.lightened(_random.randf_range(0.0, 0.12))
 	var dark := skin.darkened(0.35)
 	var belly := Color("d6d98a")
 	var eye := Color("e8e070")
@@ -156,6 +236,13 @@ func _part(parent: Node3D, center: Vector3, dimensions: Vector3, color: Color) -
 	var material := StandardMaterial3D.new()
 	material.albedo_color = color
 	material.roughness = 1.0
+	# Golden frogs shine and glow faintly so the rarest hat is easy to spot.
+	if kind == Kind.GOLDEN and color.s > 0.5:
+		material.metallic = 0.5
+		material.roughness = 0.35
+		material.emission_enabled = true
+		material.emission = color
+		material.emission_energy_multiplier = 0.35
 	mesh.material = material
 	instance.mesh = mesh
 	instance.position = center

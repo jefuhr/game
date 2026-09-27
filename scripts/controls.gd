@@ -2,6 +2,8 @@ extends Node
 ## Shared input state. Touch uses independent pointer IDs; gamepads use a radial deadzone.
 
 signal reset_requested
+## Put on, swap or take off a frog hat.
+signal hat_requested
 
 enum Device { KEYBOARD, GAMEPAD, TOUCH }
 
@@ -63,6 +65,10 @@ func _input(event: InputEvent) -> void:
 			toggle_touch()
 		elif event.physical_keycode == KEY_R:
 			reset_requested.emit()
+		elif event.physical_keycode == KEY_E:
+			_select_device(Device.KEYBOARD)
+			if playing:
+				hat_requested.emit()
 		elif event.is_action("move_left") or event.is_action("move_right") \
 				or event.is_action("move_forward") or event.is_action("move_back") or event.is_action("jump"):
 			_select_device(Device.KEYBOARD)
@@ -84,6 +90,8 @@ func _input(event: InputEvent) -> void:
 				start(false)
 		elif event.button_index == JOY_BUTTON_BACK:
 			reset_requested.emit()
+		elif event.button_index == JOY_BUTTON_X and playing:
+			hat_requested.emit()
 		elif event.button_index == JOY_BUTTON_A and not playing:
 			start(false)
 
