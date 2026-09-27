@@ -6,10 +6,15 @@ const SCULPTURE_SPIN_SPEED := 0.6
 const TRAMPOLINE_COLOR := Color("e05ab4")
 ## Group read by the player; a trampoline's local +Y face is its bouncy side.
 const TRAMPOLINE_GROUP := &"trampoline"
-## The 40 x 56 m floor is 10 x 14 cells of 4 x 4 m. The map covers the 9 x 13
+## The arena floor spans x = -48 .. 20 and z = -56 .. 28 (68 x 84 m). The
+## original 40 x 56 m court (x = -20 .. 20, z = -28 .. 28) sits in its front-
+## right; the new left and back wings hold the big-drop surf course.
+const ARENA_MIN := Vector2(-48.0, -56.0)
+const ARENA_MAX := Vector2(20.0, 28.0)
+## The original court is 10 x 14 cells of 4 x 4 m. The map covers its 9 x 13
 ## interior cells between the grid lines; '#' marks a flush trampoline tile.
-## 56 of the 140 floor cells (40% of the floor area) are trampolines. Rows run
-## from the back wall (z = -24) to the front (z = 24); columns x = -16 .. 16.
+## 56 of those 140 cells are trampolines. Rows run from z = -24 to the front
+## (z = 24); columns x = -16 .. 16.
 const BOUNCE_FLOOR_MAP := [
 	"####.####",
 	"####.####",
@@ -46,21 +51,34 @@ const SURF_CENTER := Vector2(-15.0, -5.25)
 const SURF_DECK_TOP := 7.5
 const SURF_STEP_COUNT := 7
 const SURF_STEP_WIDTH := 1.4
+## Big-drop surf course in the left wing: a tall start deck feeds a chain of
+## descending wedges split by gaps, so every slope and drop adds speed. Each
+## entry is a wedge's ridge line [start, end], running toward the front (+z).
+const DROP_DECK_TOP := 20.0
+const DROP_LINE_X := -34.0
+const DROP_STEP_COUNT := 21
+const DROP_COURSE := [
+	[Vector3(-34, 18.5, -50), Vector3(-34, 13, -32)],
+	[Vector3(-34, 10.5, -28), Vector3(-34, 7, -10)],
+	[Vector3(-34, 5.5, -6), Vector3(-34, 5, 20)],
+]
 
 var _sculpture_gem: Node3D
 
 
 func _ready() -> void:
-	_box("Floor", Vector3(0, -0.5, 0), Vector3(40, 1, 56), Color("283e4b"))
-	_box("BackWall", Vector3(0, 1.5, -28), Vector3(40, 3, 0.5), Color("416071"))
-	_box("LeftWall", Vector3(-20, 1.5, 0), Vector3(0.5, 3, 56), Color("416071"))
-	_box("RightWall", Vector3(20, 1.5, 0), Vector3(0.5, 3, 56), Color("416071"))
-	_box("FrontWall", Vector3(0, 1.5, 28), Vector3(40, 3, 0.5), Color("416071"))
+	var size := ARENA_MAX - ARENA_MIN
+	var mid := (ARENA_MIN + ARENA_MAX) * 0.5
+	_box("Floor", Vector3(mid.x, -0.5, mid.y), Vector3(size.x, 1, size.y), Color("283e4b"))
+	_box("BackWall", Vector3(mid.x, 1.5, ARENA_MIN.y), Vector3(size.x, 3, 0.5), Color("416071"))
+	_box("LeftWall", Vector3(ARENA_MIN.x, 1.5, mid.y), Vector3(0.5, 3, size.y), Color("416071"))
+	_box("RightWall", Vector3(ARENA_MAX.x, 1.5, mid.y), Vector3(0.5, 3, size.y), Color("416071"))
+	_box("FrontWall", Vector3(mid.x, 1.5, ARENA_MAX.y), Vector3(size.x, 3, 0.5), Color("416071"))
 	_build_bounce_guards()
-	for x in range(-18, 20, 4):
-		_box("Grid", Vector3(x, 0.006, 0), Vector3(0.025, 0.01, 55), Color("3b5663"), false)
-	for z in range(-26, 28, 4):
-		_box("Grid", Vector3(0, 0.007, z), Vector3(39, 0.01, 0.025), Color("3b5663"), false)
+	for x in range(int(ARENA_MIN.x) + 2, int(ARENA_MAX.x), 4):
+		_box("Grid", Vector3(x, 0.006, mid.y), Vector3(0.025, 0.01, size.y - 1), Color("3b5663"), false)
+	for z in range(int(ARENA_MIN.y) + 2, int(ARENA_MAX.y), 4):
+		_box("Grid", Vector3(mid.x, 0.007, z), Vector3(size.x - 1, 0.01, 0.025), Color("3b5663"), false)
 	_build_bounce_floor()
 	for i in range(5):
 		_box("JumpBlock", Vector3(-9, 0.2 + i * 0.1, 5 - i * 4), Vector3(3, 0.4 + i * 0.2, 2.5), Color("5ae3bc"))
@@ -75,6 +93,7 @@ func _ready() -> void:
 	_build_cornflower_sculpture(Vector3(14, 0, 14))
 	_build_trampoline_court()
 	_build_surf_ramp()
+	_build_drop_course()
 	_sign("AIR STRAFE / HOP", Vector3(-9, 2.6, -20))
 	_sign("RAMP / MOMENTUM", Vector3(8, 3.4, -16))
 	_sign("CORNFLOWER STEPS", Vector3(-13, 2.6, 18))
@@ -131,19 +150,22 @@ func _build_bounce_floor() -> void:
 
 
 ## Invisible colliders stacked on the perimeter walls so big bounces cannot
-## carry anyone out of the arena. Maximum launch (24 m/s) peaks near 14.4 m.
+## carry anyone out of the arena. Maximum launch (24 m/s) peaks near 14.4 m;
+## they also rise well above the 20 m drop deck.
 func _build_bounce_guards() -> void:
 	var guard := StaticBody3D.new()
 	guard.name = "BounceGuard"
 	add_child(guard)
 	var bottom := 3.0
-	var height := 27.0
+	var height := 37.0
 	var y := bottom + height * 0.5
+	var size := ARENA_MAX - ARENA_MIN
+	var mid := (ARENA_MIN + ARENA_MAX) * 0.5
 	var walls := [
-		[Vector3(0, y, -28), Vector3(40, height, 0.5)],
-		[Vector3(0, y, 28), Vector3(40, height, 0.5)],
-		[Vector3(-20, y, 0), Vector3(0.5, height, 56)],
-		[Vector3(20, y, 0), Vector3(0.5, height, 56)],
+		[Vector3(mid.x, y, ARENA_MIN.y), Vector3(size.x, height, 0.5)],
+		[Vector3(mid.x, y, ARENA_MAX.y), Vector3(size.x, height, 0.5)],
+		[Vector3(ARENA_MIN.x, y, mid.y), Vector3(0.5, height, size.y)],
+		[Vector3(ARENA_MAX.x, y, mid.y), Vector3(0.5, height, size.y)],
 	]
 	for wall in walls:
 		var collider := CollisionShape3D.new()
@@ -182,15 +204,60 @@ func _trampoline(label: String, center: Vector3, dimensions: Vector3, rot: Vecto
 ## too steep to stand on; hold strafe toward the face to ride it. One prism mesh
 ## and one convex collider keep it cheap on mobile.
 func _build_surf_ramp() -> void:
+	var half_l := SURF_LENGTH * 0.5
+	var ridge_y := SURF_BOTTOM + SURF_HALF_WIDTH * tan(deg_to_rad(SURF_ANGLE_DEG))
+	_surf_wedge("SurfRamp", Vector3(SURF_CENTER.x, ridge_y, SURF_CENTER.y - half_l), Vector3(SURF_CENTER.x, ridge_y, SURF_CENTER.y + half_l))
+	# Start deck in the back-left corner, a short drop above the wedge's ridge.
+	var deck_back := -27.75
+	var deck_front := SURF_CENTER.y - half_l
+	var deck_color := SURF_COLOR.darkened(0.35)
+	_box("SurfDeck", Vector3(SURF_CENTER.x, SURF_DECK_TOP - 0.25, (deck_back + deck_front) * 0.5), Vector3(7, 0.5, deck_front - deck_back), deck_color)
+	# Stairs along the back wall, each rise well within a single jump.
+	var deck_edge_x := SURF_CENTER.x + 3.5
+	for i in SURF_STEP_COUNT:
+		var top := SURF_DECK_TOP * float(i + 1) / float(SURF_STEP_COUNT + 1)
+		var x := deck_edge_x + SURF_STEP_WIDTH * (SURF_STEP_COUNT - i - 0.5)
+		var shade := deck_color.lightened(0.05 * float(i % 2))
+		_box("SurfStep", Vector3(x, top * 0.5, -26.25), Vector3(SURF_STEP_WIDTH, top, 3.0), shade)
+	_sign("SURF RAMP", Vector3(SURF_CENTER.x, SURF_DECK_TOP + 1.2, deck_front + 0.1))
+	_sign("SURF STAIRS", Vector3(-4.5, 2.6, -24.5), 48)
+
+
+## Big-drop line down the left wing: stairs along the new back wall climb to a
+## 20 m deck; wedges pitched downhill (still steeper than 45 deg across) are
+## separated by short gaps, so riders drop onto each lower ramp and keep speed.
+func _build_drop_course() -> void:
+	var deck_back := ARENA_MIN.y + 0.25
+	var first: Vector3 = DROP_COURSE[0][0]
+	var deck_front := first.z
+	var deck_color := SURF_COLOR.darkened(0.35)
+	_box("DropDeck", Vector3(DROP_LINE_X, DROP_DECK_TOP - 0.25, (deck_back + deck_front) * 0.5), Vector3(7, 0.5, deck_front - deck_back), deck_color)
+	var deck_edge_x := DROP_LINE_X + 3.5
+	for i in DROP_STEP_COUNT:
+		var top := DROP_DECK_TOP * float(i + 1) / float(DROP_STEP_COUNT + 1)
+		var x := deck_edge_x + SURF_STEP_WIDTH * (DROP_STEP_COUNT - i - 0.5)
+		var shade := deck_color.lightened(0.05 * float(i % 2))
+		_box("DropStep", Vector3(x, top * 0.5, deck_back + 1.5), Vector3(SURF_STEP_WIDTH, top, 3.0), shade)
+	for i in DROP_COURSE.size():
+		_surf_wedge("DropRamp%d" % (i + 1), DROP_COURSE[i][0], DROP_COURSE[i][1])
+	_sign("BIG DROP SURF", Vector3(DROP_LINE_X, DROP_DECK_TOP + 1.2, deck_front + 0.1))
+	_sign("DROP STAIRS", Vector3(deck_edge_x + SURF_STEP_WIDTH * DROP_STEP_COUNT + 1.5, 2.6, deck_back + 3.2), 48)
+
+
+## A floating two-sided surf wedge whose ridge runs from `from` to `to`. One
+## prism mesh and one convex collider keep it cheap on mobile.
+func _surf_wedge(label: String, from: Vector3, to: Vector3) -> Node3D:
 	var height := SURF_HALF_WIDTH * tan(deg_to_rad(SURF_ANGLE_DEG))
 	var half_h := height * 0.5
-	var half_l := SURF_LENGTH * 0.5
+	var length := from.distance_to(to)
+	var half_l := length * 0.5
 	var body := StaticBody3D.new()
-	body.name = "SurfRamp"
-	body.position = Vector3(SURF_CENTER.x, SURF_BOTTOM + half_h, SURF_CENTER.y)
+	body.name = label
+	body.basis = Basis.looking_at(to - from, Vector3.UP)
+	body.position = (from + to) * 0.5 - body.basis.y * half_h
 	body.add_to_group(SURF_GROUP)
 	var prism := PrismMesh.new()
-	prism.size = Vector3(SURF_HALF_WIDTH * 2.0, height, SURF_LENGTH)
+	prism.size = Vector3(SURF_HALF_WIDTH * 2.0, height, length)
 	var material := StandardMaterial3D.new()
 	material.albedo_color = SURF_COLOR
 	material.roughness = 1.0
@@ -211,20 +278,7 @@ func _build_surf_ramp() -> void:
 	collider.shape = shape
 	body.add_child(collider)
 	add_child(body)
-	# Start deck in the back-left corner, a short drop above the wedge's ridge.
-	var deck_back := -27.75
-	var deck_front := SURF_CENTER.y - half_l
-	var deck_color := SURF_COLOR.darkened(0.35)
-	_box("SurfDeck", Vector3(SURF_CENTER.x, SURF_DECK_TOP - 0.25, (deck_back + deck_front) * 0.5), Vector3(7, 0.5, deck_front - deck_back), deck_color)
-	# Stairs along the back wall, each rise well within a single jump.
-	var deck_edge_x := SURF_CENTER.x + 3.5
-	for i in SURF_STEP_COUNT:
-		var top := SURF_DECK_TOP * float(i + 1) / float(SURF_STEP_COUNT + 1)
-		var x := deck_edge_x + SURF_STEP_WIDTH * (SURF_STEP_COUNT - i - 0.5)
-		var shade := deck_color.lightened(0.05 * float(i % 2))
-		_box("SurfStep", Vector3(x, top * 0.5, -26.25), Vector3(SURF_STEP_WIDTH, top, 3.0), shade)
-	_sign("SURF RAMP", Vector3(SURF_CENTER.x, SURF_DECK_TOP + 1.2, deck_front + 0.1))
-	_sign("SURF STAIRS", Vector3(-4.5, 2.6, -24.5), 48)
+	return body
 
 
 ## "Cornflower Twist": a twisting stack of cubes crowned by a spinning,
