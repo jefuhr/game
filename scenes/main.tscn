@@ -46,6 +46,21 @@ position = Vector3(-4, 0.1, 4)
 [node name="Frog5" parent="." instance=ExtResource("5")]
 position = Vector3(-6, 0.1, 0)
 
+[node name="Frog6" parent="." instance=ExtResource("5")]
+position = Vector3(-8, 0.1, 24)
+
+[node name="Frog7" parent="." instance=ExtResource("5")]
+position = Vector3(2, 0.1, 25)
+
+[node name="Frog8" parent="." instance=ExtResource("5")]
+position = Vector3(16, 0.1, 22)
+
+[node name="Frog9" parent="." instance=ExtResource("5")]
+position = Vector3(6, 0.1, 6)
+
+[node name="Frog10" parent="." instance=ExtResource("5")]
+position = Vector3(-5, 0.1, 11)
+
 [node name="CanvasLayer" type="CanvasLayer" parent="."]
 
 [node name="HUD" type="Control" parent="CanvasLayer"]
