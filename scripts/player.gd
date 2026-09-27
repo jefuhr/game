@@ -3,6 +3,8 @@ extends CharacterBody3D
 
 ## Bodies in this group are surf ramps: steep faces clip velocity Source-style.
 const SURF_GROUP := &"surf"
+## Bodies in this group receive the player's velocity when bumped into.
+const FROG_GROUP := &"frog"
 
 @export var max_speed := 7.0
 @export var ground_acceleration := 10.0
@@ -58,11 +60,21 @@ func _physics_process(delta: float) -> void:
 		velocity.y = jump_speed
 	var incoming := velocity
 	move_and_slide()
+	_push_frogs(incoming)
 	_bounced = _apply_trampolines(incoming)
 	if not _bounced:
 		_apply_surf(incoming)
 	if position.y < -15.0:
 		respawn()
+
+
+## Simple push: any frog hit this frame gets the player's pre-impact velocity added.
+func _push_frogs(incoming: Vector3) -> void:
+	for i in get_slide_collision_count():
+		var frog := get_slide_collision(i).get_collider() as Node
+		if frog == null or not frog.is_in_group(FROG_GROUP) or not frog.has_method(&"push"):
+			continue
+		frog.push(incoming)
 
 
 ## Reflects off the bouncy (+Y) face of any trampoline hit this frame, at any

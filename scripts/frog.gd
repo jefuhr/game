@@ -6,6 +6,9 @@ extends CharacterBody3D
 ## does not count as a wall.
 const PROBE_LIFT := 0.06
 const GRAVITY := 20.0
+## Seconds after a push during which further pushes are ignored, so leaning
+## on a frog does not add the player's velocity every physics frame.
+const PUSH_COOLDOWN := 0.3
 
 ## Horizontal speed of a hop.
 @export var hop_speed := 2.5
@@ -19,6 +22,8 @@ var _rest_time := 0.0
 var _hopping := false
 var _spawn := Vector3.ZERO
 var _bounced := false
+var _pushed := false
+var _push_cooldown := 0.0
 var _squash := 0.0
 var _visual: Node3D
 var _body: Node3D
@@ -26,6 +31,7 @@ var _back_legs: Array[Node3D] = []
 
 
 func _ready() -> void:
+	add_to_group(&"frog")
 	_random.randomize()
 	_spawn = position
 	_build_frog()
@@ -35,11 +41,23 @@ func _ready() -> void:
 	_rest_time = _random.randf_range(0.3, 2.0)
 
 
+## Adds an impulse (e.g. the player's velocity on impact) to the frog.
+func push(impulse: Vector3) -> void:
+	if _push_cooldown > 0.0:
+		return
+	_push_cooldown = PUSH_COOLDOWN
+	velocity += impulse
+	_pushed = true
+	_hopping = true
+
+
 func _physics_process(delta: float) -> void:
 	if not Controls.playing:
 		return
-	# The floor state from a trampoline hop is stale: treat that frame as airborne.
-	var grounded := is_on_floor() and not _bounced
+	_push_cooldown = maxf(_push_cooldown - delta, 0.0)
+	# The floor state from a trampoline hop or a push is stale: treat that frame as airborne.
+	var grounded := is_on_floor() and not _bounced and not _pushed
+	_pushed = false
 	if grounded:
 		if _hopping:
 			_hopping = false
@@ -62,6 +80,7 @@ func _physics_process(delta: float) -> void:
 		position = _spawn
 		velocity = Vector3.ZERO
 		_bounced = false
+		_pushed = false
 		_hopping = false
 	_animate(delta)
 

@@ -52,6 +52,14 @@ Stick look uses angular speed multiplied by elapsed time.
 Sensitivity values live in `scripts/controls.gd`. The test arena has ramps,
 jump blocks, pillars, walls, a surf ramp, a speed readout, and a fall-triggered respawn.
 
+## Pushing frogs
+
+Running or landing into a frog adds your velocity at impact to the frog's
+velocity, knocking it away (`_push_frogs()` in `scripts/player.gd`, `push()` in
+`scripts/frog.gd`). Each frog ignores further pushes for `PUSH_COOLDOWN`
+(0.3 s) so leaning on one does not keep stacking your speed onto it. Frogs
+then slow down with their normal ground friction.
+
 ## Surf ramp
 
 Counter-Strike style surfing lives along the left side of the arena. Climb the
