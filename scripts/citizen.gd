@@ -25,6 +25,7 @@ var _right_leg: Node3D
 func _ready() -> void:
 	_random.randomize()
 	_spawn = position
+	add_to_group(&"gibbable")
 	_build_person()
 	_choose_direction()
 

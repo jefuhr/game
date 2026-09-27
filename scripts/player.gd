@@ -3,6 +3,9 @@ extends CharacterBody3D
 
 ## Bodies in this group are surf ramps: steep faces clip velocity Source-style.
 const SURF_GROUP := &"surf"
+## NPCs in this group burst into gibs instead of stopping a fast player.
+const GIBBABLE_GROUP := &"gibbable"
+const Gibs := preload("res://scripts/gibs.gd")
 
 @export var max_speed := 7.0
 @export var ground_acceleration := 10.0
@@ -17,6 +20,9 @@ const SURF_GROUP := &"surf"
 @export var trampoline_min_launch := 6.0
 @export var trampoline_restitution := 0.6
 @export var trampoline_max_launch := 24.0
+## Horizontal speed needed to smash through NPCs; set just above running speed
+## so walking still bumps into them.
+@export var gib_min_speed := 7.5
 
 @onready var camera: Camera3D = $Camera3D
 var spawn_position := Vector3.ZERO
@@ -58,11 +64,30 @@ func _physics_process(delta: float) -> void:
 		velocity.y = jump_speed
 	var incoming := velocity
 	move_and_slide()
+	if _smash_npcs(incoming):
+		# Momentum is sacred: the collision never happened as far as speed goes.
+		velocity = incoming
+		if grounded and not jump_now:
+			velocity.y = 0.0
 	_bounced = _apply_trampolines(incoming)
 	if not _bounced:
 		_apply_surf(incoming)
 	if position.y < -15.0:
 		respawn()
+
+
+## Gibs every NPC hit this frame at speed; returns true if any were smashed.
+func _smash_npcs(incoming: Vector3) -> bool:
+	if Vector2(incoming.x, incoming.z).length() < gib_min_speed:
+		return false
+	var smashed := false
+	for i in get_slide_collision_count():
+		var npc := get_slide_collision(i).get_collider() as Node3D
+		if npc == null or not npc.is_in_group(GIBBABLE_GROUP) or npc.is_queued_for_deletion():
+			continue
+		Gibs.explode(npc, incoming)
+		smashed = true
+	return smashed
 
 
 ## Reflects off the bouncy (+Y) face of any trampoline hit this frame, at any

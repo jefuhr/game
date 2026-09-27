@@ -28,6 +28,7 @@ var _back_legs: Array[Node3D] = []
 func _ready() -> void:
 	_random.randomize()
 	_spawn = position
+	add_to_group(&"gibbable")
 	_build_frog()
 	var angle := _random.randf_range(-PI, PI)
 	_direction = Vector3(sin(angle), 0, cos(angle))
