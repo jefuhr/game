@@ -30,6 +30,23 @@ const BOUNCE_TILE_SIZE := 4.0
 const BOUNCE_TILE_TOP := 0.03
 const BOUNCE_TILE_THICKNESS := 0.1
 
+## Counter-Strike style surf ramp: a floating wedge whose faces are steeper than
+## the player's floor angle (45 deg), so they are surfed rather than walked.
+## Group read by the player for Source-style velocity clipping.
+const SURF_GROUP := &"surf"
+const SURF_COLOR := Color("3fc1c9")
+const SURF_ANGLE_DEG := 55.0
+const SURF_HALF_WIDTH := 2.5
+## Height of the wedge's lower edges; players can walk underneath.
+const SURF_BOTTOM := 3.0
+const SURF_LENGTH := 36.5
+## Wedge center on the floor plane (x, z). Runs from z = -23.5 to z = 13.
+const SURF_CENTER := Vector2(-15.0, -5.25)
+## Start deck at the back-left corner, reached by stairs along the back wall.
+const SURF_DECK_TOP := 7.5
+const SURF_STEP_COUNT := 7
+const SURF_STEP_WIDTH := 1.4
+
 var _sculpture_gem: Node3D
 
 
@@ -57,6 +74,7 @@ func _ready() -> void:
 	_box("CornflowerStepHigh", Vector3(-13, 0.4, 18), Vector3(2.5, 0.8, 2.5), CORNFLOWER_BLUE.lightened(0.15))
 	_build_cornflower_sculpture(Vector3(14, 0, 14))
 	_build_trampoline_court()
+	_build_surf_ramp()
 	_sign("AIR STRAFE / HOP", Vector3(-9, 2.6, -20))
 	_sign("RAMP / MOMENTUM", Vector3(8, 3.4, -16))
 	_sign("CORNFLOWER STEPS", Vector3(-13, 2.6, 18))
@@ -157,6 +175,56 @@ func _trampoline(label: String, center: Vector3, dimensions: Vector3, rot: Vecto
 	pad.rotation = rot
 	pad.add_to_group(TRAMPOLINE_GROUP)
 	return pad
+
+
+## Surf line along the left side: stairs on the back wall climb to a start deck,
+## from which players drop onto a floating two-sided wedge. Its 55 deg faces are
+## too steep to stand on; hold strafe toward the face to ride it. One prism mesh
+## and one convex collider keep it cheap on mobile.
+func _build_surf_ramp() -> void:
+	var height := SURF_HALF_WIDTH * tan(deg_to_rad(SURF_ANGLE_DEG))
+	var half_h := height * 0.5
+	var half_l := SURF_LENGTH * 0.5
+	var body := StaticBody3D.new()
+	body.name = "SurfRamp"
+	body.position = Vector3(SURF_CENTER.x, SURF_BOTTOM + half_h, SURF_CENTER.y)
+	body.add_to_group(SURF_GROUP)
+	var prism := PrismMesh.new()
+	prism.size = Vector3(SURF_HALF_WIDTH * 2.0, height, SURF_LENGTH)
+	var material := StandardMaterial3D.new()
+	material.albedo_color = SURF_COLOR
+	material.roughness = 1.0
+	prism.material = material
+	var visual := MeshInstance3D.new()
+	visual.mesh = prism
+	body.add_child(visual)
+	var shape := ConvexPolygonShape3D.new()
+	shape.points = PackedVector3Array([
+		Vector3(-SURF_HALF_WIDTH, -half_h, -half_l),
+		Vector3(SURF_HALF_WIDTH, -half_h, -half_l),
+		Vector3(0, half_h, -half_l),
+		Vector3(-SURF_HALF_WIDTH, -half_h, half_l),
+		Vector3(SURF_HALF_WIDTH, -half_h, half_l),
+		Vector3(0, half_h, half_l),
+	])
+	var collider := CollisionShape3D.new()
+	collider.shape = shape
+	body.add_child(collider)
+	add_child(body)
+	# Start deck in the back-left corner, a short drop above the wedge's ridge.
+	var deck_back := -27.75
+	var deck_front := SURF_CENTER.y - half_l
+	var deck_color := SURF_COLOR.darkened(0.35)
+	_box("SurfDeck", Vector3(SURF_CENTER.x, SURF_DECK_TOP - 0.25, (deck_back + deck_front) * 0.5), Vector3(7, 0.5, deck_front - deck_back), deck_color)
+	# Stairs along the back wall, each rise well within a single jump.
+	var deck_edge_x := SURF_CENTER.x + 3.5
+	for i in SURF_STEP_COUNT:
+		var top := SURF_DECK_TOP * float(i + 1) / float(SURF_STEP_COUNT + 1)
+		var x := deck_edge_x + SURF_STEP_WIDTH * (SURF_STEP_COUNT - i - 0.5)
+		var shade := deck_color.lightened(0.05 * float(i % 2))
+		_box("SurfStep", Vector3(x, top * 0.5, -26.25), Vector3(SURF_STEP_WIDTH, top, 3.0), shade)
+	_sign("SURF RAMP", Vector3(SURF_CENTER.x, SURF_DECK_TOP + 1.2, deck_front + 0.1))
+	_sign("SURF STAIRS", Vector3(-4.5, 2.6, -24.5), 48)
 
 
 ## "Cornflower Twist": a twisting stack of cubes crowned by a spinning,
