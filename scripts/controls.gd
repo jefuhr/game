@@ -108,9 +108,9 @@ func toggle_touch() -> void:
 	force_touch = not force_touch
 	clear_touch()
 	if force_touch:
-		use_touch()
+		_select_device(Device.TOUCH)
 	else:
-		device = Device.GAMEPAD if joypad >= 0 else Device.KEYBOARD
+		device = Device.GAMEPAD if joypad >= 0 else (Device.TOUCH if touch_available else Device.KEYBOARD)
 		pause()
 
 
