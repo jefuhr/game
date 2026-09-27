@@ -2,6 +2,9 @@ extends Node3D
 ## Lightweight primitive geometry keeps the playground inexpensive on mobile GPUs.
 
 const CORNFLOWER_BLUE := Color("6495ed")
+const SCULPTURE_SPIN_SPEED := 0.6
+
+var _sculpture_gem: Node3D
 
 
 func _ready() -> void:
@@ -24,9 +27,40 @@ func _ready() -> void:
 	# Cornflower blue steps in the open front-left corner.
 	_box("CornflowerStepLow", Vector3(-13, 0.2, 18), Vector3(5, 0.4, 5), CORNFLOWER_BLUE)
 	_box("CornflowerStepHigh", Vector3(-13, 0.4, 18), Vector3(2.5, 0.8, 2.5), CORNFLOWER_BLUE.lightened(0.15))
+	_build_cornflower_sculpture(Vector3(14, 0, 14))
 	_sign("AIR STRAFE / HOP", Vector3(-9, 2.6, -20))
 	_sign("RAMP / MOMENTUM", Vector3(8, 3.4, -16))
 	_sign("CORNFLOWER STEPS", Vector3(-13, 2.6, 18))
+
+
+func _process(delta: float) -> void:
+	if _sculpture_gem:
+		_sculpture_gem.rotate_y(SCULPTURE_SPIN_SPEED * delta)
+
+
+## "Cornflower Twist": a twisting stack of cubes crowned by a spinning,
+## corner-balanced gem. Five boxes total to stay cheap on mobile.
+func _build_cornflower_sculpture(base: Vector3) -> void:
+	_box("SculpturePedestal", base + Vector3(0, 0.3, 0), Vector3(3, 0.6, 3), CORNFLOWER_BLUE.darkened(0.35))
+	var tiers := [
+		[1.8, 1.5, 15.0, 0.0],
+		[1.3, 3.05, 40.0, 0.1],
+		[0.9, 4.15, 65.0, 0.2],
+	]
+	for tier in tiers:
+		var size: float = tier[0]
+		var cube := _box("SculptureTier", base + Vector3(0, tier[1], 0), Vector3(size, size, size), CORNFLOWER_BLUE.lightened(tier[3]))
+		cube.rotation.y = deg_to_rad(tier[2])
+	# Gem: a cube balanced on its corner; its pivot spins, the mesh stays tilted.
+	_sculpture_gem = Node3D.new()
+	_sculpture_gem.name = "SculptureGemPivot"
+	_sculpture_gem.position = base + Vector3(0, 5.35, 0)
+	add_child(_sculpture_gem)
+	var gem := _box("SculptureGem", Vector3.ZERO, Vector3(0.7, 0.7, 0.7), CORNFLOWER_BLUE.lightened(0.45), false)
+	remove_child(gem)
+	_sculpture_gem.add_child(gem)
+	gem.rotation = Vector3(deg_to_rad(45), 0, deg_to_rad(35.26))
+	_sign("CORNFLOWER TWIST", base + Vector3(0, 0.3, 1.52), 40)
 
 
 func _box(label: String, center: Vector3, dimensions: Vector3, color: Color, solid := true) -> Node3D:
@@ -52,10 +86,10 @@ func _box(label: String, center: Vector3, dimensions: Vector3, color: Color, sol
 	return body
 
 
-func _sign(label: String, center: Vector3) -> void:
+func _sign(label: String, center: Vector3, font_size := 64) -> void:
 	var sign_label := Label3D.new()
 	sign_label.text = label
 	sign_label.position = center
-	sign_label.font_size = 64
+	sign_label.font_size = font_size
 	sign_label.pixel_size = 0.008
 	add_child(sign_label)
