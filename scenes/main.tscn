@@ -1,10 +1,11 @@
-[gd_scene load_steps=6 format=3]
+[gd_scene load_steps=7 format=3]
 
 [ext_resource type="Script" path="res://scripts/arena.gd" id="1"]
 [ext_resource type="PackedScene" path="res://scenes/player.tscn" id="2"]
 [ext_resource type="Script" path="res://scripts/hud.gd" id="3"]
 
 [ext_resource type="PackedScene" path="res://scenes/citizen.tscn" id="4"]
+[ext_resource type="PackedScene" path="res://scenes/frog.tscn" id="5"]
 
 [sub_resource type="Environment" id="Environment_main"]
 background_mode = 1
@@ -29,6 +30,21 @@ position = Vector3(4, 0.1, 18)
 
 [node name="Citizen" parent="." instance=ExtResource("4")]
 position = Vector3(4, 0.1, 12)
+
+[node name="Frog" parent="." instance=ExtResource("5")]
+position = Vector3(-4, 0.1, 14)
+
+[node name="Frog2" parent="." instance=ExtResource("5")]
+position = Vector3(10, 0.1, 14)
+
+[node name="Frog3" parent="." instance=ExtResource("5")]
+position = Vector3(8, 0.1, 21)
+
+[node name="Frog4" parent="." instance=ExtResource("5")]
+position = Vector3(-4, 0.1, 4)
+
+[node name="Frog5" parent="." instance=ExtResource("5")]
+position = Vector3(-6, 0.1, 0)
 
 [node name="CanvasLayer" type="CanvasLayer" parent="."]
 
