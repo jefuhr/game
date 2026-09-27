@@ -10,6 +10,8 @@ var device := Device.KEYBOARD
 var touch_available := false
 var force_touch := false
 var playing := false
+## While the developer console is open, typed keys must not trigger game shortcuts.
+var console_open := false
 var joypad := -1
 var touch_move := Vector2.ZERO
 var touch_jump := false
@@ -56,6 +58,8 @@ func _process(_delta: float) -> void:
 
 
 func _input(event: InputEvent) -> void:
+	if console_open:
+		return
 	if event is InputEventKey and event.pressed and not event.echo:
 		if event.physical_keycode == KEY_ESCAPE:
 			pause()

@@ -60,6 +60,8 @@ func _process(_delta: float) -> void:
 
 
 func _input(event: InputEvent) -> void:
+	if Controls.console_open:
+		return
 	if event is InputEventKey and event.pressed and not event.echo and event.physical_keycode == KEY_M:
 		toggle_mute()
 

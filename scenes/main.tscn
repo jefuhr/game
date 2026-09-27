@@ -1,4 +1,4 @@
-[gd_scene load_steps=7 format=3]
+[gd_scene load_steps=8 format=3]
 
 [ext_resource type="Script" path="res://scripts/arena.gd" id="1"]
 [ext_resource type="PackedScene" path="res://scenes/player.tscn" id="2"]
@@ -6,6 +6,7 @@
 
 [ext_resource type="PackedScene" path="res://scenes/citizen.tscn" id="4"]
 [ext_resource type="PackedScene" path="res://scenes/frog.tscn" id="5"]
+[ext_resource type="Script" path="res://scripts/console.gd" id="6"]
 
 [sub_resource type="Environment" id="Environment_main"]
 background_mode = 1
@@ -56,3 +57,13 @@ anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
 script = ExtResource("3")
+
+[node name="Console" type="Control" parent="CanvasLayer"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+script = ExtResource("6")

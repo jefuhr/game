@@ -20,6 +20,8 @@ const SURF_GROUP := &"surf"
 
 @onready var camera: Camera3D = $Camera3D
 var spawn_position := Vector3.ZERO
+## Console noclip: fly where the camera looks, ignoring collisions; jump rises.
+var noclip := false
 var _jump_was_held := false
 var _bounced := false
 
@@ -36,6 +38,11 @@ func _physics_process(delta: float) -> void:
 	rotation.y = wrapf(rotation.y - look.x, -PI, PI)
 	camera.rotation.x = clampf(camera.rotation.x - look.y, deg_to_rad(-89), deg_to_rad(89))
 	var input := Controls.movement()
+	if noclip:
+		var rise := Vector3.UP if Controls.jumping() else Vector3.ZERO
+		velocity = (camera.global_basis * Vector3(input.x, 0, input.y) + rise).limit_length() * max_speed * 2.0
+		position += velocity * delta
+		return
 	var wish := global_basis * Vector3(input.x, 0, input.y)
 	var wish_speed := max_speed * input.length()
 	var wish_direction := wish.normalized()

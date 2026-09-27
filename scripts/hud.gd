@@ -102,6 +102,8 @@ func jump_center() -> Vector2:
 
 
 func _input(event: InputEvent) -> void:
+	if Controls.console_open:
+		return
 	if event is InputEventScreenTouch:
 		var point: Vector2 = event.position / ui_scale
 		if not event.pressed or event.canceled:
@@ -203,7 +205,7 @@ func _draw() -> void:
 		_centered("MAKE YOUR MOVE", ui_size.y * 0.5 - 70, 40, INK)
 		_centered("Build speed. Strafe in the air. Keep your momentum.", ui_size.y * 0.5 - 25, 20, INK)
 		_centered("Click / tap to play  ·  Gamepad A to start", ui_size.y * 0.5 + 25, 22, ACCENT)
-		_centered("Hold jump to bunny hop  ·  R / Back to respawn", ui_size.y * 0.5 + 67, 18, INK)
+		_centered("Hold jump to bunny hop  ·  R / Back to respawn  ·  ` for console", ui_size.y * 0.5 + 67, 18, INK)
 		_centered("Touch: left side moves, right side looks", ui_size.y * 0.5 + 99, 18, INK)
 		_button(reset_button(), "RESPAWN")
 	# Drawn after the pause overlay so it stays bright in both states.
