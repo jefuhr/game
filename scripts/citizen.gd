@@ -1,13 +1,20 @@
 extends CharacterBody3D
 ## Original low-poly civilian. Feet are the origin; the capsule covers the body.
 
+## Obstacle probes start slightly raised so flush floor trampolines' thin lip
+## does not count as a wall.
+const PROBE_LIFT := 0.06
+
 @export var walk_speed := 1.35
+## Upward speed a citizen hops with when landing on an upward-facing trampoline.
+@export var trampoline_hop_speed := 5.0
 var _random := RandomNumberGenerator.new()
 var _direction := Vector3.FORWARD
 var _decision_time := 0.0
 var _idle := false
 var _stride := 0.0
 var _spawn := Vector3.ZERO
+var _bounced := false
 var _visual: Node3D
 var _left_arm: Node3D
 var _right_arm: Node3D
@@ -30,18 +37,23 @@ func _physics_process(delta: float) -> void:
 		_idle = _random.randf() < 0.25
 		_choose_direction()
 	# Probe with the actual body shape so corners and other characters count too.
-	if not _idle and test_move(global_transform, _direction * 0.7):
+	if not _idle and _blocked(_direction * 0.7):
 		_choose_direction(true)
 	var speed := 0.0 if _idle else walk_speed
 	velocity.x = _direction.x * speed
 	velocity.z = _direction.z * speed
-	velocity.y = -0.5 if is_on_floor() else velocity.y - 20.0 * delta
+	# The floor state from a trampoline hop is stale: treat that frame as airborne.
+	var grounded := is_on_floor() and not _bounced
+	velocity.y = -0.5 if grounded else velocity.y - 20.0 * delta
+	var incoming_y := velocity.y
 	move_and_slide()
+	_bounced = _hop_on_trampolines(incoming_y)
 	if is_on_wall():
 		_choose_direction(true)
 	if position.y < -15.0:
 		position = _spawn
 		velocity = Vector3.ZERO
+		_bounced = false
 	var moving := Vector2(get_real_velocity().x, get_real_velocity().z).length()
 	if moving > 0.05:
 		_visual.rotation.y = lerp_angle(_visual.rotation.y, atan2(-_direction.x, -_direction.z), delta * 8.0)
@@ -53,6 +65,27 @@ func _physics_process(delta: float) -> void:
 	_right_arm.rotation.x = swing * 0.7
 
 
+## Citizens playfully hop whenever they land on the top of a trampoline.
+func _hop_on_trampolines(incoming_y: float) -> bool:
+	if incoming_y > 0.0:
+		return false
+	for i in get_slide_collision_count():
+		var collision := get_slide_collision(i)
+		var pad := collision.get_collider() as Node3D
+		if pad == null or not pad.is_in_group(&"trampoline"):
+			continue
+		var face := pad.global_basis.y.normalized()
+		if face.y < 0.7 or collision.get_normal().dot(face) < 0.7:
+			continue
+		velocity.y = trampoline_hop_speed
+		return true
+	return false
+
+
+func _blocked(motion: Vector3) -> bool:
+	return test_move(global_transform.translated(Vector3.UP * PROBE_LIFT), motion)
+
+
 func _choose_direction(avoid_obstacle := false) -> void:
 	_decision_time = _random.randf_range(1.5, 4.0)
 	if avoid_obstacle:
@@ -61,7 +94,7 @@ func _choose_direction(avoid_obstacle := false) -> void:
 	for attempt in range(12):
 		var angle := _random.randf_range(-PI, PI)
 		var candidate := Vector3(sin(angle), 0, cos(angle))
-		if not test_move(global_transform, candidate * 0.8):
+		if not _blocked(candidate * 0.8):
 			_direction = candidate
 			return
 	_idle = true

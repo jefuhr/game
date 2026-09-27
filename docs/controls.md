@@ -65,7 +65,23 @@ face normal; speed along the surface is kept. Launch speed is
 `trampoline_min_launch + impact × trampoline_restitution` (6 m/s + 0.6 × impact),
 capped at `trampoline_max_launch` (24 m/s), so harder impacts launch harder.
 Bouncing between the floor and ceiling pads escalates up to the cap; air-strafe
-out or press respawn. Floor pads are raised, so jump onto them.
+out or press respawn. Court floor pads are raised, so jump onto them.
+
+### Bounce floor
+
+40% of the arena floor is trampoline: 56 of the 140 4 × 4 m floor cells are
+flush pink checker tiles (`BOUNCE_FLOOR_MAP` in `scripts/arena.gd`, `#` = tile).
+They leave the spawn area, props, and the court clear. Walking onto a tile does
+not launch you; jump on it to start bouncing. Repeated bounces settle around
+15 m/s (about 5.6 m high). Steer off a tile to stop. All tiles share one static
+body and are drawn with a single MultiMesh to stay cheap on mobile.
+
+Invisible colliders extend the perimeter walls up to 30 m so big bounces cannot
+carry anyone out of the arena.
+
+Citizens join in too: whenever one lands on an upward-facing trampoline it hops
+at `trampoline_hop_speed` (5 m/s, `scripts/citizen.gd`). Citizens' obstacle
+probes start 6 cm above their feet so the thin tile edge does not stop them.
 
 ## iOS fullscreen
 
