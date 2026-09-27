@@ -54,11 +54,13 @@ jump blocks, pillars, walls, a surf ramp, a speed readout, and a fall-triggered 
 
 ## Pushing frogs
 
-Running or landing into a frog adds your velocity at impact to the frog's
-velocity, knocking it away (`_push_frogs()` in `scripts/player.gd`, `push()` in
-`scripts/frog.gd`). Each frog ignores further pushes for `PUSH_COOLDOWN`
-(0.3 s) so leaning on one does not keep stacking your speed onto it. Frogs
-then slow down with their normal ground friction.
+Running or landing into a frog sets its velocity to
+`frog velocity + your velocity at impact + a slight upward pop`
+(`push_lift`, 2.5 m/s), knocking it away with a little hop
+(`_push_frogs()` in `scripts/player.gd`, `push()` in `scripts/frog.gd`). Each
+frog ignores further pushes for `PUSH_COOLDOWN` (0.3 s) so leaning on one does
+not keep stacking your speed onto it. Frogs then slow down with their normal
+ground friction.
 
 ## Surf ramp
 

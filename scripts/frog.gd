@@ -16,6 +16,8 @@ const PUSH_COOLDOWN := 0.3
 @export var hop_height := 4.0
 ## Upward speed a frog springs with when landing on an upward-facing trampoline.
 @export var trampoline_hop_speed := 6.0
+## Slight extra upward speed added whenever the frog is pushed.
+@export var push_lift := 2.5
 var _random := RandomNumberGenerator.new()
 var _direction := Vector3.FORWARD
 var _rest_time := 0.0
@@ -41,12 +43,13 @@ func _ready() -> void:
 	_rest_time = _random.randf_range(0.3, 2.0)
 
 
-## Adds an impulse (e.g. the player's velocity on impact) to the frog.
+## Pushes the frog: new velocity = frog velocity + impulse (e.g. the player's
+## velocity on impact) + a slight vertical pop.
 func push(impulse: Vector3) -> void:
 	if _push_cooldown > 0.0:
 		return
 	_push_cooldown = PUSH_COOLDOWN
-	velocity += impulse
+	velocity = velocity + impulse + Vector3.UP * push_lift
 	_pushed = true
 	_hopping = true
 
