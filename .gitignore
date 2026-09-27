@@ -5,4 +5,7 @@
 # Generated exports and local OS files.
 /build/
 /build_info.json
+/_site/
+/preview-report.json
+__pycache__/
 .DS_Store

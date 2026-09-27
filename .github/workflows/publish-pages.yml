@@ -1,0 +1,68 @@
+name: Publish game and PR previews
+
+on:
+  workflow_run:
+    workflows: ['Build and deploy web game']
+    types: [completed]
+  schedule:
+    - cron: '23 6 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# Every publication reconstructs all retained previews, so superseding a queued
+# run cannot lose another PR's preview. Never cancel a deployment in progress.
+concurrency:
+  group: github-pages
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    name: Deploy production and PR previews
+    if: >-
+      github.event_name != 'workflow_run' ||
+      (github.event.workflow_run.conclusion == 'success' &&
+       (github.event.workflow_run.event == 'pull_request' ||
+        github.event.workflow_run.head_branch == 'master'))
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      actions: read
+      pages: write
+      id-token: write
+      pull-requests: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      # Always use publishing code from the protected branch, never a PR artifact.
+      - name: Check out trusted publishing tools
+        uses: actions/checkout@v6
+        with:
+          ref: master
+          persist-credentials: false
+
+      - name: Configure GitHub Pages
+        uses: actions/configure-pages@v5
+
+      - name: Assemble production and retained PR builds
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 tools/publish_previews.py assemble
+
+      - name: Upload complete Pages site
+        uses: actions/upload-pages-artifact@v4
+        with:
+          path: _site
+
+      - name: Deploy
+        id: deployment
+        uses: actions/deploy-pages@v4
+
+      - name: Update clickable PR preview comments
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PAGE_URL: ${{ steps.deployment.outputs.page_url }}
+        run: python3 tools/publish_previews.py comment --base-url "$PAGE_URL"

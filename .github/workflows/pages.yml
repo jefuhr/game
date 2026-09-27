@@ -72,31 +72,14 @@ jobs:
           test -s build/web/index.wasm
           test -s build/web/index.pck
 
-      - name: Upload GitHub Pages artifact
-        if: github.ref == 'refs/heads/master' && github.event_name != 'pull_request'
-        uses: actions/upload-pages-artifact@v4
+      - name: Test preview publishing tools
+        run: python3 -m unittest discover -s tests -p 'test_*.py'
+
+      - name: Upload playable build
+        if: github.event_name == 'pull_request' || github.ref == 'refs/heads/master'
+        uses: actions/upload-artifact@v4
         with:
-          path: build/web
-
-  deploy:
-    name: Deploy to GitHub Pages
-    if: github.ref == 'refs/heads/master' && github.event_name != 'pull_request'
-    needs: build
-    runs-on: ubuntu-24.04
-    timeout-minutes: 10
-    permissions:
-      pages: write
-      id-token: write
-    concurrency:
-      group: github-pages
-      cancel-in-progress: false
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    steps:
-      - name: Configure GitHub Pages
-        uses: actions/configure-pages@v5
-
-      - name: Deploy
-        id: deployment
-        uses: actions/deploy-pages@v4
+          name: web-build
+          path: build/web/
+          if-no-files-found: error
+          retention-days: ${{ github.event_name == 'pull_request' && 14 || 90 }}

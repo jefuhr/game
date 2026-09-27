@@ -26,6 +26,9 @@ func _ready() -> void:
 			var revision: String = metadata.get("master_hash", "")
 			if revision.length() == 40 and revision.is_valid_hex_number():
 				master_watermark = "master / " + revision.left(8)
+			var preview: String = metadata.get("preview_hash", "")
+			if preview.length() == 40 and preview.is_valid_hex_number():
+				master_watermark = "PR #%d / %s · %s" % [int(metadata.get("pr_number", 0)), preview.left(8), master_watermark]
 
 
 func _process(_delta: float) -> void:
