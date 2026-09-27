@@ -18,7 +18,8 @@ const SURF_GROUP := &"surf"
 @export var trampoline_restitution := 0.6
 @export var trampoline_max_launch := 24.0
 
-@onready var camera: Camera3D = $Camera3D
+## Optional so the camera-less bot can reuse this movement script.
+@onready var camera: Camera3D = get_node_or_null("Camera3D")
 var spawn_position := Vector3.ZERO
 var _jump_was_held := false
 var _bounced := false
