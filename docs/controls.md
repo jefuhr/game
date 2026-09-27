@@ -51,7 +51,17 @@ game canvas. Use **Share → Add to Home Screen**, then launch the icon to remov
 Safari's address and navigation bars. The Web export includes Apple's standalone
 metadata and a touch icon. A service worker/offline PWA is not required for this
 standalone launch. System status/home-indicator visibility remains iOS-controlled.
-The page keeps the default safe viewport rather than drawing controls into notches.
+The page uses `viewport-fit=cover` and a translucent status bar so the 3D view
+extends to the screen edges, including the rounded corners and notch area.
+Only HUD controls and the watermark use the device's safe-area insets; the game
+canvas is never padded or letterboxed. Insets update when the device rotates.
+After a deployment that changes these Home Screen settings, fully close and
+reopen the app. If iOS retains the old launch layout, remove its Home Screen icon
+and add it again from the updated Safari page.
+
+`web/shell.html` is based on Godot 4.7.2's standard Web shell. Keep its engine
+placeholders and startup handling when upgrading Godot. Its small safe-area
+bridge reports CSS pixels to the HUD without changing the renderer's dimensions.
 
 iPad Safari supports element fullscreen after a user gesture. See
 [WebKit's iPhone fullscreen issue](https://bugs.webkit.org/show_bug.cgi?id=206854)

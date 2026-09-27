@@ -5,6 +5,9 @@ const INK := Color(0.9, 0.96, 1.0)
 const ACCENT := Color(0.34, 0.94, 0.76)
 var ui_scale := 1.0
 var ui_size := Vector2.ZERO
+var safe_bounds := Rect2()
+var _browser: JavaScriptObject
+var _safe_area_refresh := 0.0
 var move_finger := -1
 var look_finger := -1
 var jump_finger := -1
@@ -18,6 +21,8 @@ var master_watermark := "master / unstamped dev"
 
 func _ready() -> void:
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
+	if OS.has_feature("web"):
+		_browser = JavaScriptBridge.get_interface("window")
 	resized.connect(_resize_layout)
 	_resize_layout()
 	if FileAccess.file_exists("res://build_info.json"):
@@ -28,7 +33,12 @@ func _ready() -> void:
 				master_watermark = "master / " + revision.left(8)
 
 
-func _process(_delta: float) -> void:
+func _process(delta: float) -> void:
+	# iOS can update CSS safe areas after its resize event, especially on rotation.
+	_safe_area_refresh -= delta
+	if _safe_area_refresh <= 0.0:
+		_update_safe_area()
+		_safe_area_refresh = 0.5
 	if _was_touch != Controls.touch_visible() or _was_playing != Controls.playing:
 		_clear_fingers()
 	_was_touch = Controls.touch_visible()
@@ -40,7 +50,24 @@ func _resize_layout() -> void:
 	# Portrait should retain thumb-sized controls instead of shrinking a desktop HUD.
 	ui_scale = clampf(size.y / maxf(size.x, 1.0), 1.0, 2.0)
 	ui_size = size / ui_scale
+	_update_safe_area()
 	_clear_fingers()
+
+
+func _update_safe_area() -> void:
+	safe_bounds = Rect2(Vector2.ZERO, ui_size)
+	if _browser == null:
+		return
+	var area = JSON.parse_string(_browser.getGameSafeArea())
+	if not area is Dictionary:
+		return
+	var css_size := Vector2(float(area.get("width", 0)), float(area.get("height", 0)))
+	if css_size.x <= 0.0 or css_size.y <= 0.0:
+		return
+	var css_to_ui := ui_size / css_size
+	var start := Vector2(float(area.get("left", 0)), float(area.get("top", 0))) * css_to_ui
+	var end := Vector2(float(area.get("right", 0)), float(area.get("bottom", 0))) * css_to_ui
+	safe_bounds = Rect2(start, ui_size - start - end)
 
 
 func _clear_fingers() -> void:
@@ -51,11 +78,11 @@ func _clear_fingers() -> void:
 
 
 func touch_button() -> Rect2:
-	return Rect2(ui_size.x - 208, 20, 184, 64)
+	return Rect2(safe_bounds.end.x - 208, safe_bounds.position.y + 20, 184, 64)
 
 
 func pause_button() -> Rect2:
-	return Rect2(ui_size.x - 296, 20, 76, 64)
+	return Rect2(safe_bounds.end.x - 296, safe_bounds.position.y + 20, 76, 64)
 
 
 func reset_button() -> Rect2:
@@ -63,7 +90,7 @@ func reset_button() -> Rect2:
 
 
 func jump_center() -> Vector2:
-	return Vector2(ui_size.x - 106, ui_size.y - 116)
+	return safe_bounds.end - Vector2(106, 116)
 
 
 func _input(event: InputEvent) -> void:
@@ -140,10 +167,11 @@ func _release_finger(index: int) -> void:
 func _draw() -> void:
 	draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE * ui_scale)
 	var font := ThemeDB.fallback_font
-	draw_rect(Rect2(0, 0, ui_size.x, 104), Color(0.025, 0.045, 0.07, 0.8))
-	draw_string(font, Vector2(28, 42), ("TFPP / MOVE LAB" if ui_size.x < 720 else "TFPP / MOVEMENT LAB"), HORIZONTAL_ALIGNMENT_LEFT, -1, 22, ACCENT)
+	var header_bottom := safe_bounds.position.y + 104
+	draw_rect(Rect2(0, 0, ui_size.x, header_bottom), Color(0.025, 0.045, 0.07, 0.8))
+	draw_string(font, safe_bounds.position + Vector2(28, 42), ("TFPP / MOVE LAB" if safe_bounds.size.x < 720 else "TFPP / MOVEMENT LAB"), HORIZONTAL_ALIGNMENT_LEFT, -1, 22, ACCENT)
 	var speed := Vector2(player.velocity.x, player.velocity.z).length()
-	draw_string(font, Vector2(28, 76), "%s  /  %.1f m/s" % [
+	draw_string(font, safe_bounds.position + Vector2(28, 76), "%s  /  %.1f m/s" % [
 		["KEYBOARD + MOUSE", "GAMEPAD", "TOUCH"][Controls.device], speed], HORIZONTAL_ALIGNMENT_LEFT, -1, 18, INK)
 	_button(touch_button(), "TOUCH: " + ("ON" if Controls.force_touch else "AUTO"))
 	if Controls.playing:
@@ -157,10 +185,10 @@ func _draw() -> void:
 			var hint := "WASD / MOVE     MOUSE / LOOK     SPACE / HOP     ESC / PAUSE     R / RESET"
 			if Controls.device == Controls.Device.GAMEPAD:
 				hint = "LEFT STICK / MOVE     RIGHT STICK / LOOK     A / HOP     START / PAUSE"
-			draw_rect(Rect2(0, ui_size.y - 50, ui_size.x, 50), Color(0.025, 0.045, 0.07, 0.8))
-			_centered(hint, ui_size.y - 32, 16, INK)
+			draw_rect(Rect2(0, safe_bounds.end.y - 50, ui_size.x, ui_size.y - safe_bounds.end.y + 50), Color(0.025, 0.045, 0.07, 0.8))
+			_centered(hint, safe_bounds.end.y - 32, 16, INK)
 	else:
-		draw_rect(Rect2(0, 104, ui_size.x, ui_size.y - 104), Color(0.02, 0.04, 0.06, 0.74))
+		draw_rect(Rect2(0, header_bottom, ui_size.x, ui_size.y - header_bottom), Color(0.02, 0.04, 0.06, 0.74))
 		_centered("MAKE YOUR MOVE", ui_size.y * 0.5 - 70, 40, INK)
 		_centered("Build speed. Strafe in the air. Keep your momentum.", ui_size.y * 0.5 - 25, 20, INK)
 		_centered("Click / tap to play  ·  Gamepad A to start", ui_size.y * 0.5 + 25, 22, ACCENT)
@@ -169,20 +197,20 @@ func _draw() -> void:
 		_button(reset_button(), "RESPAWN")
 	# Draw last, including over the pause overlay; keep clear of the jump target.
 	var watermark_width := font.get_string_size(master_watermark, HORIZONTAL_ALIGNMENT_LEFT, -1, 16).x
-	var watermark_position := Vector2(ui_size.x - watermark_width - 24, ui_size.y - 14)
+	var watermark_position := safe_bounds.end - Vector2(watermark_width + 24, 14)
 	draw_rect(Rect2(watermark_position - Vector2(8, 19), Vector2(watermark_width + 16, 27)), Color(0.02, 0.04, 0.06, 0.65))
 	draw_string(font, watermark_position, master_watermark, HORIZONTAL_ALIGNMENT_LEFT, -1, 16, Color(0.9, 0.96, 1, 0.65))
 
 
 func _draw_touch() -> void:
-	var center := Vector2(132, ui_size.y - 132) if move_finger == -1 else move_origin
+	var center := Vector2(safe_bounds.position.x + 132, safe_bounds.end.y - 132) if move_finger == -1 else move_origin
 	draw_circle(center, 76, Color(0.06, 0.1, 0.14, 0.45))
 	draw_arc(center, 76, 0, TAU, 48, Color(0.9, 0.96, 1, 0.55), 2, true)
 	draw_circle(center + Controls.touch_move * 56, 28, Color(0.34, 0.94, 0.76, 0.65))
 	draw_circle(jump_center(), 62, Color(0.06, 0.1, 0.14, 0.6))
 	draw_arc(jump_center(), 62, 0, TAU, 48, ACCENT, 2, true)
 	draw_string(ThemeDB.fallback_font, jump_center() + Vector2(-26, 7), "JUMP", HORIZONTAL_ALIGNMENT_LEFT, -1, 20, INK)
-	draw_string(ThemeDB.fallback_font, Vector2(ui_size.x * 0.63, ui_size.y - 42), "DRAG TO LOOK", HORIZONTAL_ALIGNMENT_LEFT, -1, 16, INK)
+	draw_string(ThemeDB.fallback_font, Vector2(safe_bounds.position.x + safe_bounds.size.x * 0.63, safe_bounds.end.y - 42), "DRAG TO LOOK", HORIZONTAL_ALIGNMENT_LEFT, -1, 16, INK)
 
 
 func _button(rect: Rect2, label: String) -> void:
