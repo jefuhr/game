@@ -17,21 +17,37 @@ const SURF_GROUP := &"surf"
 @export var trampoline_min_launch := 6.0
 @export var trampoline_restitution := 0.6
 @export var trampoline_max_launch := 24.0
+## Gravity bomb throw speed along the view, added to the player's velocity.
+@export var bomb_throw_speed := 18.0
+@export var bomb_cooldown := 0.5
+
+const GravityBomb := preload("res://scripts/gravity_bomb.gd")
 
 @onready var camera: Camera3D = $Camera3D
 var spawn_position := Vector3.ZERO
 var _jump_was_held := false
 var _bounced := false
+var _reverse_time := 0.0
+var _bomb_cooldown_left := 0.0
 
 
 func _ready() -> void:
 	spawn_position = position
+	add_to_group(GravityBomb.REVERSIBLE_GROUP)
 	Controls.reset_requested.connect(respawn)
+	Controls.throw_requested.connect(throw_bomb)
 
 
 func _physics_process(delta: float) -> void:
 	if not Controls.playing:
 		return
+	_bomb_cooldown_left = maxf(_bomb_cooldown_left - delta, 0.0)
+	if _reverse_time > 0.0:
+		_reverse_time -= delta
+		if _reverse_time <= 0.0:
+			up_direction = Vector3.UP
+	# -1 while a gravity bomb has flipped us: "floor" becomes whatever is overhead.
+	var up_sign := up_direction.y
 	var look := Controls.consume_look(delta)
 	rotation.y = wrapf(rotation.y - look.x, -PI, PI)
 	camera.rotation.x = clampf(camera.rotation.x - look.y, deg_to_rad(-89), deg_to_rad(89))
@@ -53,9 +69,9 @@ func _physics_process(delta: float) -> void:
 	else:
 		# Cap only projected wish speed, allowing air strafes to build lateral momentum.
 		accelerate(wish_direction, minf(wish_speed, air_wish_speed_cap), air_acceleration * wish_speed * delta)
-		velocity.y -= gravity * delta
+		velocity.y -= gravity * delta * up_sign
 	if jump_now:
-		velocity.y = jump_speed
+		velocity.y = jump_speed * up_sign
 	var incoming := velocity
 	move_and_slide()
 	_bounced = _apply_trampolines(incoming)
@@ -89,7 +105,7 @@ func _apply_trampolines(incoming: Vector3) -> bool:
 ## velocity into the face is removed, so all speed along the ramp is kept.
 ## Holding strafe toward the face converts air acceleration into lift along it.
 func _apply_surf(incoming: Vector3) -> bool:
-	if is_on_floor():
+	if is_on_floor() or _reverse_time > 0.0:
 		return false
 	var steepest_floor_y := cos(floor_max_angle)
 	for i in get_slide_collision_count():
@@ -125,6 +141,24 @@ func apply_friction(delta: float) -> void:
 	velocity.z *= next_speed / speed
 
 
+## Called by gravity bombs; a fresh hit restarts the timer rather than stacking.
+func reverse_gravity(duration: float) -> void:
+	_reverse_time = duration
+	up_direction = Vector3.DOWN
+
+
+func throw_bomb() -> void:
+	if not Controls.playing or _bomb_cooldown_left > 0.0:
+		return
+	_bomb_cooldown_left = bomb_cooldown
+	var forward := -camera.global_basis.z
+	var bomb := GravityBomb.new()
+	bomb.velocity = velocity + forward * bomb_throw_speed
+	bomb.exclude.append(get_rid())
+	get_parent().add_child(bomb)
+	bomb.global_position = camera.global_position + forward * 0.4
+
+
 func respawn() -> void:
 	position = spawn_position
 	velocity = Vector3.ZERO
@@ -132,4 +166,6 @@ func respawn() -> void:
 	camera.rotation = Vector3.ZERO
 	_jump_was_held = false
 	_bounced = false
+	_reverse_time = 0.0
+	up_direction = Vector3.UP
 	Controls.look_delta = Vector2.ZERO

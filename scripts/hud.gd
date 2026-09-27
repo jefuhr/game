@@ -101,6 +101,11 @@ func jump_center() -> Vector2:
 	return safe_bounds.end - Vector2(106, 116)
 
 
+## Up and left of the jump button, clear of it and the watermark.
+func bomb_center() -> Vector2:
+	return safe_bounds.end - Vector2(236, 196)
+
+
 func _input(event: InputEvent) -> void:
 	if event is InputEventScreenTouch:
 		var point: Vector2 = event.position / ui_scale
@@ -118,7 +123,9 @@ func _input(event: InputEvent) -> void:
 			Controls.start(false)
 			_was_playing = true
 			_was_touch = true
-		if point.distance_to(jump_center()) <= 62 and jump_finger == -1:
+		if point.distance_to(bomb_center()) <= 44:
+			Controls.throw_requested.emit()
+		elif point.distance_to(jump_center()) <= 62 and jump_finger == -1:
 			jump_finger = event.index
 			Controls.touch_jump = true
 		elif point.x < ui_size.x * 0.45 and move_finger == -1:
@@ -193,9 +200,9 @@ func _draw() -> void:
 		if Controls.touch_visible():
 			_draw_touch()
 		else:
-			var hint := "WASD / MOVE     MOUSE / LOOK     SPACE / HOP     ESC / PAUSE     R / RESET     M / MUSIC"
+			var hint := "WASD / MOVE     MOUSE / LOOK     SPACE / HOP     CLICK or F / BOMB     ESC / PAUSE     R / RESET     M / MUSIC"
 			if Controls.device == Controls.Device.GAMEPAD:
-				hint = "LEFT STICK / MOVE     RIGHT STICK / LOOK     A / HOP     START / PAUSE"
+				hint = "LEFT STICK / MOVE     RIGHT STICK / LOOK     A / HOP     RB / BOMB     START / PAUSE"
 			draw_rect(Rect2(0, safe_bounds.end.y - 50, ui_size.x, ui_size.y - safe_bounds.end.y + 50), Color(0.025, 0.045, 0.07, 0.8))
 			_centered(hint, safe_bounds.end.y - 32, 16, INK)
 	else:
@@ -223,6 +230,9 @@ func _draw_touch() -> void:
 	draw_circle(jump_center(), 62, Color(0.06, 0.1, 0.14, 0.6))
 	draw_arc(jump_center(), 62, 0, TAU, 48, ACCENT, 2, true)
 	draw_string(ThemeDB.fallback_font, jump_center() + Vector2(-26, 7), "JUMP", HORIZONTAL_ALIGNMENT_LEFT, -1, 20, INK)
+	draw_circle(bomb_center(), 44, Color(0.06, 0.1, 0.14, 0.6))
+	draw_arc(bomb_center(), 44, 0, TAU, 40, Color(0.0, 0.5, 0.5), 2, true)
+	draw_string(ThemeDB.fallback_font, bomb_center() + Vector2(-26, 6), "BOMB", HORIZONTAL_ALIGNMENT_LEFT, -1, 18, INK)
 	draw_string(ThemeDB.fallback_font, Vector2(safe_bounds.position.x + safe_bounds.size.x * 0.63, safe_bounds.end.y - 42), "DRAG TO LOOK", HORIZONTAL_ALIGNMENT_LEFT, -1, 16, INK)
 
 

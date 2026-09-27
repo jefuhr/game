@@ -15,6 +15,7 @@ var _idle := false
 var _stride := 0.0
 var _spawn := Vector3.ZERO
 var _bounced := false
+var _reverse_time := 0.0
 var _visual: Node3D
 var _left_arm: Node3D
 var _right_arm: Node3D
@@ -25,6 +26,7 @@ var _right_leg: Node3D
 func _ready() -> void:
 	_random.randomize()
 	_spawn = position
+	add_to_group(&"gravity_reversible")
 	_build_person()
 	_choose_direction()
 
@@ -32,6 +34,11 @@ func _ready() -> void:
 func _physics_process(delta: float) -> void:
 	if not Controls.playing:
 		return
+	if _reverse_time > 0.0:
+		_reverse_time -= delta
+		if _reverse_time <= 0.0:
+			up_direction = Vector3.UP
+	var up_sign := up_direction.y
 	_decision_time -= delta
 	if _decision_time <= 0.0:
 		_idle = _random.randf() < 0.25
@@ -44,8 +51,8 @@ func _physics_process(delta: float) -> void:
 	velocity.z = _direction.z * speed
 	# The floor state from a trampoline hop is stale: treat that frame as airborne.
 	var grounded := is_on_floor() and not _bounced
-	velocity.y = -0.5 if grounded else velocity.y - 20.0 * delta
-	var incoming_y := velocity.y
+	velocity.y = (-0.5 if grounded else velocity.y * up_sign - 20.0 * delta) * up_sign
+	var incoming_y := velocity.y * up_sign
 	move_and_slide()
 	_bounced = _hop_on_trampolines(incoming_y)
 	if is_on_wall():
@@ -54,6 +61,8 @@ func _physics_process(delta: float) -> void:
 		position = _spawn
 		velocity = Vector3.ZERO
 		_bounced = false
+		_reverse_time = 0.0
+		up_direction = Vector3.UP
 	var moving := Vector2(get_real_velocity().x, get_real_velocity().z).length()
 	if moving > 0.05:
 		_visual.rotation.y = lerp_angle(_visual.rotation.y, atan2(-_direction.x, -_direction.z), delta * 8.0)
@@ -66,6 +75,7 @@ func _physics_process(delta: float) -> void:
 
 
 ## Citizens playfully hop whenever they land on the top of a trampoline.
+## incoming_y is measured along up_direction, so this also works reversed.
 func _hop_on_trampolines(incoming_y: float) -> bool:
 	if incoming_y > 0.0:
 		return false
@@ -75,15 +85,21 @@ func _hop_on_trampolines(incoming_y: float) -> bool:
 		if pad == null or not pad.is_in_group(&"trampoline"):
 			continue
 		var face := pad.global_basis.y.normalized()
-		if face.y < 0.7 or collision.get_normal().dot(face) < 0.7:
+		if face.dot(up_direction) < 0.7 or collision.get_normal().dot(face) < 0.7:
 			continue
-		velocity.y = trampoline_hop_speed
+		velocity.y = trampoline_hop_speed * up_direction.y
 		return true
 	return false
 
 
+## Called by gravity bombs; a fresh hit restarts the timer rather than stacking.
+func reverse_gravity(duration: float) -> void:
+	_reverse_time = duration
+	up_direction = Vector3.DOWN
+
+
 func _blocked(motion: Vector3) -> bool:
-	return test_move(global_transform.translated(Vector3.UP * PROBE_LIFT), motion)
+	return test_move(global_transform.translated(up_direction * PROBE_LIFT), motion)
 
 
 func _choose_direction(avoid_obstacle := false) -> void:

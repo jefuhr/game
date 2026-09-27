@@ -2,6 +2,7 @@ extends Node
 ## Shared input state. Touch uses independent pointer IDs; gamepads use a radial deadzone.
 
 signal reset_requested
+signal throw_requested
 
 enum Device { KEYBOARD, GAMEPAD, TOUCH }
 
@@ -63,6 +64,10 @@ func _input(event: InputEvent) -> void:
 			toggle_touch()
 		elif event.physical_keycode == KEY_R:
 			reset_requested.emit()
+		elif event.physical_keycode == KEY_F:
+			_select_device(Device.KEYBOARD)
+			if playing:
+				throw_requested.emit()
 		elif event.is_action("move_left") or event.is_action("move_right") \
 				or event.is_action("move_forward") or event.is_action("move_back") or event.is_action("jump"):
 			_select_device(Device.KEYBOARD)
@@ -70,6 +75,9 @@ func _input(event: InputEvent) -> void:
 		_select_device(Device.KEYBOARD)
 		if playing:
 			look_delta += event.screen_relative * mouse_sensitivity
+	elif event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT \
+			and Input.mouse_mode == Input.MOUSE_MODE_CAPTURED and playing:
+		throw_requested.emit()
 	elif event is InputEventJoypadMotion:
 		if event.axis <= JOY_AXIS_RIGHT_Y and absf(event.axis_value) > DEADZONE:
 			joypad = event.device
@@ -84,6 +92,8 @@ func _input(event: InputEvent) -> void:
 				start(false)
 		elif event.button_index == JOY_BUTTON_BACK:
 			reset_requested.emit()
+		elif event.button_index == JOY_BUTTON_RIGHT_SHOULDER and playing:
+			throw_requested.emit()
 		elif event.button_index == JOY_BUTTON_A and not playing:
 			start(false)
 
