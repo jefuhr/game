@@ -47,11 +47,19 @@ const SURF_DECK_TOP := 7.5
 const SURF_STEP_COUNT := 7
 const SURF_STEP_WIDTH := 1.4
 
+## Water hole: a square gap in the floor, centered in a free grid cell so no
+## grid lines cross it. Shallower than a jump (1.2 m) so players can climb out.
+const WATER_HOLE_CENTER := Vector2(-4.0, -8.0)
+const WATER_HOLE_SIZE := 3.6
+const WATER_HOLE_DEPTH := 1.0
+const WATER_LEVEL := -0.3
+const WATER_COLOR := Color(0.2, 0.55, 0.9, 0.6)
+
 var _sculpture_gem: Node3D
 
 
 func _ready() -> void:
-	_box("Floor", Vector3(0, -0.5, 0), Vector3(40, 1, 56), Color("283e4b"))
+	_build_floor_with_water_hole()
 	_box("BackWall", Vector3(0, 1.5, -28), Vector3(40, 3, 0.5), Color("416071"))
 	_box("LeftWall", Vector3(-20, 1.5, 0), Vector3(0.5, 3, 56), Color("416071"))
 	_box("RightWall", Vector3(20, 1.5, 0), Vector3(0.5, 3, 56), Color("416071"))
@@ -83,6 +91,28 @@ func _ready() -> void:
 func _process(delta: float) -> void:
 	if _sculpture_gem:
 		_sculpture_gem.rotate_y(SCULPTURE_SPIN_SPEED * delta)
+
+
+## The 40 x 56 m floor as four slabs framing the water hole. The slabs' 1 m
+## thickness doubles as the hole's walls; a basin box and translucent water fill it.
+func _build_floor_with_water_hole() -> void:
+	var floor_color := Color("283e4b")
+	var half := WATER_HOLE_SIZE * 0.5
+	var x0 := WATER_HOLE_CENTER.x - half
+	var x1 := WATER_HOLE_CENTER.x + half
+	var z0 := WATER_HOLE_CENTER.y - half
+	var z1 := WATER_HOLE_CENTER.y + half
+	_box("FloorBack", Vector3(0, -0.5, (-28.0 + z0) * 0.5), Vector3(40, 1, z0 + 28.0), floor_color)
+	_box("FloorFront", Vector3(0, -0.5, (z1 + 28.0) * 0.5), Vector3(40, 1, 28.0 - z1), floor_color)
+	_box("FloorLeft", Vector3((-20.0 + x0) * 0.5, -0.5, WATER_HOLE_CENTER.y), Vector3(x0 + 20.0, 1, WATER_HOLE_SIZE), floor_color)
+	_box("FloorRight", Vector3((x1 + 20.0) * 0.5, -0.5, WATER_HOLE_CENTER.y), Vector3(20.0 - x1, 1, WATER_HOLE_SIZE), floor_color)
+	var bottom := -WATER_HOLE_DEPTH
+	_box("WaterHoleBasin", Vector3(WATER_HOLE_CENTER.x, bottom - 0.25, WATER_HOLE_CENTER.y), Vector3(WATER_HOLE_SIZE, 0.5, WATER_HOLE_SIZE), floor_color.darkened(0.4))
+	var water := _box("Water", Vector3(WATER_HOLE_CENTER.x, (bottom + WATER_LEVEL) * 0.5, WATER_HOLE_CENTER.y), Vector3(WATER_HOLE_SIZE, WATER_LEVEL - bottom, WATER_HOLE_SIZE), WATER_COLOR, false)
+	var material: StandardMaterial3D = (water.get_child(0) as MeshInstance3D).mesh.material
+	material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	material.roughness = 0.1
+	material.metallic_specular = 0.8
 
 
 ## Flush trampoline tiles covering 40% of the floor. One static body (in the
