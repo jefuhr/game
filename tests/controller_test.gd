@@ -9,6 +9,10 @@ var hud: Control
 
 
 func _ready() -> void:
+	get_tree().create_timer(30.0).timeout.connect(func() -> void:
+		push_error("Controller checks timed out")
+		get_tree().quit(1)
+	)
 	call_deferred("run")
 
 
@@ -85,10 +89,12 @@ func run() -> void:
 	touch(0, origin, true)
 	drag(0, origin - Vector2(0, 76), Vector2(0, -76))
 	touch(1, Vector2(hud.size.x * 0.65, hud.size.y * 0.5), true)
-	drag(1, Vector2(hud.size.x * 0.65 + 20, hud.size.y * 0.5), Vector2(20, 0))
+	# Reproduce the web backend's erroneous first multitouch relative delta.
+	drag(1, Vector2(hud.size.x * 0.65 + 20, hud.size.y * 0.5), Vector2(1280, 360))
 	touch(2, hud.jump_center(), true)
 	check(Controls.touch_visible() and Controls.touch_move.y < -0.9, "Touch activates and moves")
 	check(Controls.look_delta.x > 0 and Controls.touch_jump, "Touch look and jump coexist with movement")
+	check(Controls.look_delta.x < 0.2 and is_zero_approx(Controls.look_delta.y), "First multi-finger drag must not snap the camera")
 	await frames(2)
 	check(Controls.touch_move.y < -0.9, "Input device switch must not drop the first touch")
 	touch(1, Vector2.ZERO, false)

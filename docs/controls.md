@@ -37,8 +37,10 @@ momentum for air strafing. This is Source-inspired movement, not a frame-exact
 Source engine port. Crouching, stair stepping, and Source-specific surf collision
 behavior are not implemented. Ramps use Godot's floor snapping and sliding.
 
-Input is centralized in the `Controls` autoload. Mouse and touch look accumulate
-screen-relative deltas; stick look uses angular speed multiplied by elapsed time.
+Input is centralized in the `Controls` autoload. Mouse look accumulates
+screen-relative deltas. Touch look tracks its own finger positions and converts
+the difference to screen pixels to avoid spurious browser multitouch deltas.
+Stick look uses angular speed multiplied by elapsed time.
 Sensitivity values live in `scripts/controls.gd`. The test arena has ramps,
 jump blocks, pillars, walls, a speed readout, and a fall-triggered respawn.
 

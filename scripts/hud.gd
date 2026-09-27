@@ -9,6 +9,7 @@ var move_finger := -1
 var look_finger := -1
 var jump_finger := -1
 var move_origin := Vector2.ZERO
+var look_position := Vector2.ZERO
 var _was_touch := false
 var _was_playing := false
 var master_watermark := "master / unstamped dev"
@@ -67,10 +68,11 @@ func jump_center() -> Vector2:
 
 func _input(event: InputEvent) -> void:
 	if event is InputEventScreenTouch:
+		var point: Vector2 = event.position / ui_scale
 		if not event.pressed or event.canceled:
 			_release_finger(event.index)
 			return
-		if _button_press((event.position / ui_scale)):
+		if _button_press(point):
 			get_viewport().set_input_as_handled()
 			return
 		if Controls.device != Controls.Device.TOUCH:
@@ -81,24 +83,30 @@ func _input(event: InputEvent) -> void:
 			Controls.start(false)
 			_was_playing = true
 			_was_touch = true
-		if (event.position / ui_scale).distance_to(jump_center()) <= 62 and jump_finger == -1:
+		if point.distance_to(jump_center()) <= 62 and jump_finger == -1:
 			jump_finger = event.index
 			Controls.touch_jump = true
-		elif (event.position / ui_scale).x < ui_size.x * 0.45 and move_finger == -1:
+		elif point.x < ui_size.x * 0.45 and move_finger == -1:
 			move_finger = event.index
-			move_origin = (event.position / ui_scale)
-		elif (event.position / ui_scale).x >= ui_size.x * 0.45 and look_finger == -1:
+			move_origin = point
+		elif point.x >= ui_size.x * 0.45 and look_finger == -1:
 			look_finger = event.index
+			look_position = event.position
 		get_viewport().set_input_as_handled()
 	elif event is InputEventScreenDrag and Controls.playing:
 		if event.index == move_finger:
-			Controls.touch_move = (((event.position / ui_scale) - move_origin) / 76.0).limit_length()
+			Controls.touch_move = ((event.position / ui_scale - move_origin) / 76.0).limit_length()
 		elif event.index == look_finger:
-			Controls.look_delta += event.screen_relative * Controls.touch_sensitivity
+			# Web multitouch can report another finger's position in the first relative
+			# delta. Track this finger ourselves, then convert to unscaled screen pixels.
+			var delta: Vector2 = event.position - look_position
+			look_position = event.position
+			var screen_delta := get_viewport().get_screen_transform().basis_xform(delta)
+			Controls.look_delta += screen_delta * Controls.touch_sensitivity
 		get_viewport().set_input_as_handled()
 	elif event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
 		if Input.mouse_mode != Input.MOUSE_MODE_CAPTURED:
-			if not _button_press((event.position / ui_scale)):
+			if not _button_press(event.position / ui_scale):
 				Controls.start(true)
 			get_viewport().set_input_as_handled()
 
