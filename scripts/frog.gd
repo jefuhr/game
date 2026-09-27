@@ -23,6 +23,9 @@ var _squash := 0.0
 var _visual: Node3D
 var _body: Node3D
 var _back_legs: Array[Node3D] = []
+var _balloons: Array[Node3D] = []
+var _balloon_phases: Array[float] = []
+var _time := 0.0
 
 
 func _ready() -> void:
@@ -116,6 +119,16 @@ func _animate(delta: float) -> void:
 	var kick := 0.9 if _hopping else 0.0
 	for leg in _back_legs:
 		leg.rotation.x = lerpf(leg.rotation.x, kick, delta * 14.0)
+	# Balloons bob on their strings and trail behind during a hop.
+	_time += delta
+	var trail := 0.45 if _hopping else 0.0
+	for i in _balloons.size():
+		var pivot := _balloons[i]
+		var side := signf(pivot.position.x)
+		var phase := _balloon_phases[i]
+		pivot.rotation.z = -side * 0.3 + sin(_time * 1.7 + phase) * 0.08
+		var sway := sin(_time * 1.3 + phase * 2.0) * 0.06
+		pivot.rotation.x = lerpf(pivot.rotation.x, trail + sway, delta * 4.0)
 
 
 func _build_frog() -> void:
@@ -147,15 +160,54 @@ func _build_frog() -> void:
 		_part(leg, Vector3(0, -0.03, 0.03), Vector3(0.1, 0.1, 0.2), skin)
 		_part(leg, Vector3(0, -0.115, 0.03), Vector3(0.12, 0.03, 0.2), dark)
 		_back_legs.append(leg)
+	_build_necklace()
+
+
+## A beaded collar around the neck with two balloons tied to it on strings.
+func _build_necklace() -> void:
+	var cord := Color("f4efe6")
+	var bead := Color("e6b93c")
+	# Collar band wrapping the neck between head and body.
+	_part(_body, Vector3(0, 0.285, -0.08), Vector3(0.37, 0.025, 0.04), cord)
+	_part(_body, Vector3(0, 0.065, -0.08), Vector3(0.37, 0.025, 0.04), cord)
+	for side in [-1.0, 1.0]:
+		_part(_body, Vector3(side * 0.18, 0.175, -0.08), Vector3(0.025, 0.22, 0.04), cord)
+	for x in [-0.1, 0.0, 0.1]:
+		_part(_body, Vector3(x, 0.3, -0.08), Vector3(0.04, 0.04, 0.05), bead)
+	var palette := [Color("e8413c"), Color("3c8de8"), Color("f2c230"), Color("d94fc4"), Color("4fd98a")]
+	for side in [-1.0, 1.0]:
+		var pivot := Node3D.new()
+		pivot.position = Vector3(side * 0.13, 0.29, -0.08)
+		pivot.rotation.z = -side * 0.3
+		_visual.add_child(pivot)
+		_part(pivot, Vector3(0, 0.2, 0), Vector3(0.012, 0.4, 0.012), cord)
+		var color: Color = palette[_random.randi_range(0, palette.size() - 1)]
+		_part(pivot, Vector3(0, 0.41, 0), Vector3(0.035, 0.03, 0.035), color.darkened(0.2))
+		_sphere(pivot, Vector3(0, 0.54, 0), 0.11, 0.26, color)
+		_balloons.append(pivot)
+		_balloon_phases.append(_random.randf_range(0.0, TAU))
 
 
 func _part(parent: Node3D, center: Vector3, dimensions: Vector3, color: Color) -> void:
-	var instance := MeshInstance3D.new()
 	var mesh := BoxMesh.new()
 	mesh.size = dimensions
+	_add_mesh(parent, mesh, center, color)
+
+
+func _sphere(parent: Node3D, center: Vector3, radius: float, height: float, color: Color) -> void:
+	var mesh := SphereMesh.new()
+	mesh.radius = radius
+	mesh.height = height
+	mesh.radial_segments = 12
+	mesh.rings = 6
+	_add_mesh(parent, mesh, center, color, 0.4)
+
+
+func _add_mesh(parent: Node3D, mesh: PrimitiveMesh, center: Vector3, color: Color, roughness := 1.0) -> void:
+	var instance := MeshInstance3D.new()
 	var material := StandardMaterial3D.new()
 	material.albedo_color = color
-	material.roughness = 1.0
+	material.roughness = roughness
 	mesh.material = material
 	instance.mesh = mesh
 	instance.position = center
