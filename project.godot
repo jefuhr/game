@@ -19,6 +19,7 @@ config/icon="res://icon.svg"
 
 Controls="*res://scripts/controls.gd"
 Music="*res://scripts/music.gd"
+Network="*res://scripts/network.gd"
 
 [display]
 
@@ -36,6 +37,10 @@ pointing/emulate_touch_from_mouse=false
 
 3d/physics_engine="Jolt Physics"
 common/physics_ticks_per_second=60
+
+[tfpp]
+
+multiplayer/server_url=""
 
 [rendering]
 

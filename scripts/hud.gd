@@ -184,6 +184,9 @@ func _draw() -> void:
 	var speed := Vector2(player.velocity.x, player.velocity.z).length()
 	draw_string(font, safe_bounds.position + Vector2(28, 76), "%s  /  %.1f m/s" % [
 		["KEYBOARD + MOUSE", "GAMEPAD", "TOUCH"][Controls.device], speed], HORIZONTAL_ALIGNMENT_LEFT, -1, 18, INK)
+	if not Network.server_url.is_empty():
+		var online := "ONLINE: %d" % Network.player_count() if Network.connected else "OFFLINE"
+		draw_string(font, safe_bounds.position + Vector2(28, 98), online, HORIZONTAL_ALIGNMENT_LEFT, -1, 14, ACCENT if Network.connected else INK)
 	_button(touch_button(), "TOUCH: " + ("ON" if Controls.force_touch else "AUTO"))
 	if Controls.playing:
 		_button(pause_button(), "II")
