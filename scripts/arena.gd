@@ -1,6 +1,8 @@
 extends Node3D
 ## Lightweight primitive geometry keeps the playground inexpensive on mobile GPUs.
 
+const CORNFLOWER_BLUE := Color("6495ed")
+
 
 func _ready() -> void:
 	_box("Floor", Vector3(0, -0.5, 0), Vector3(40, 1, 56), Color("283e4b"))
@@ -19,8 +21,12 @@ func _ready() -> void:
 	ramp.rotation.x = deg_to_rad(16)
 	for z in [-18, -4, 10]:
 		_box("Pillar", Vector3(0, 1.5, z), Vector3(1.4, 3, 1.4), Color("7494a5"))
+	# Cornflower blue steps in the open front-left corner.
+	_box("CornflowerStepLow", Vector3(-13, 0.2, 18), Vector3(5, 0.4, 5), CORNFLOWER_BLUE)
+	_box("CornflowerStepHigh", Vector3(-13, 0.4, 18), Vector3(2.5, 0.8, 2.5), CORNFLOWER_BLUE.lightened(0.15))
 	_sign("AIR STRAFE / HOP", Vector3(-9, 2.6, -20))
 	_sign("RAMP / MOMENTUM", Vector3(8, 3.4, -16))
+	_sign("CORNFLOWER STEPS", Vector3(-13, 2.6, 18))
 
 
 func _box(label: String, center: Vector3, dimensions: Vector3, color: Color, solid := true) -> Node3D:
