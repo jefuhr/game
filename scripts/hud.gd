@@ -88,6 +88,11 @@ func pause_button() -> Rect2:
 	return Rect2(safe_bounds.end.x - 296, safe_bounds.position.y + 20, 76, 64)
 
 
+## Sits just below the header so it never collides with the title in portrait.
+func music_button() -> Rect2:
+	return Rect2(safe_bounds.end.x - 208, safe_bounds.position.y + 116, 184, 52)
+
+
 func reset_button() -> Rect2:
 	return Rect2(ui_size.x * 0.5 - 90, ui_size.y * 0.5 + 125, 180, 64)
 
@@ -146,6 +151,9 @@ func _button_press(point: Vector2) -> bool:
 		Controls.toggle_touch()
 		_clear_fingers()
 		return true
+	if music_button().has_point(point):
+		Music.toggle_mute()
+		return true
 	if Controls.playing and pause_button().has_point(point):
 		Controls.pause()
 		_clear_fingers()
@@ -185,7 +193,7 @@ func _draw() -> void:
 		if Controls.touch_visible():
 			_draw_touch()
 		else:
-			var hint := "WASD / MOVE     MOUSE / LOOK     SPACE / HOP     ESC / PAUSE     R / RESET"
+			var hint := "WASD / MOVE     MOUSE / LOOK     SPACE / HOP     ESC / PAUSE     R / RESET     M / MUSIC"
 			if Controls.device == Controls.Device.GAMEPAD:
 				hint = "LEFT STICK / MOVE     RIGHT STICK / LOOK     A / HOP     START / PAUSE"
 			draw_rect(Rect2(0, safe_bounds.end.y - 50, ui_size.x, ui_size.y - safe_bounds.end.y + 50), Color(0.025, 0.045, 0.07, 0.8))
@@ -198,6 +206,8 @@ func _draw() -> void:
 		_centered("Hold jump to bunny hop  ·  R / Back to respawn", ui_size.y * 0.5 + 67, 18, INK)
 		_centered("Touch: left side moves, right side looks", ui_size.y * 0.5 + 99, 18, INK)
 		_button(reset_button(), "RESPAWN")
+	# Drawn after the pause overlay so it stays bright in both states.
+	_button(music_button(), "MUSIC: " + ("OFF" if Music.muted else "ON"))
 	# Draw last, including over the pause overlay; keep clear of the jump target.
 	var watermark_width := font.get_string_size(master_watermark, HORIZONTAL_ALIGNMENT_LEFT, -1, 16).x
 	var watermark_position := safe_bounds.end - Vector2(watermark_width + 24, 14)
