@@ -4,4 +4,5 @@
 
 # Generated exports and local OS files.
 /build/
+/build_info.json
 .DS_Store
