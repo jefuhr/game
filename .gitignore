@@ -1,0 +1,7 @@
+# Godot 4+ specific ignores
+.godot/
+/android/
+
+# Generated exports and local OS files.
+/build/
+.DS_Store

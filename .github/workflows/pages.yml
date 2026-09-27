@@ -1,0 +1,94 @@
+name: Build and deploy web game
+
+on:
+  push:
+    branches: ['**']
+  pull_request:
+    branches: [master]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  GODOT_VERSION: "4.7.2"
+
+jobs:
+  build:
+    # Keep this name stable: master branch protection requires this check.
+    name: Build web export
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - name: Check out project
+        uses: actions/checkout@v6
+
+      - name: Install Godot and web export templates
+        shell: bash
+        run: |
+          set -euo pipefail
+          release="${GODOT_VERSION}-stable"
+          base_url="https://github.com/godotengine/godot-builds/releases/download/${release}"
+          editor="Godot_v${release}_linux.x86_64.zip"
+          templates="Godot_v${release}_export_templates.tpz"
+          download_dir="${RUNNER_TEMP}/godot-download"
+          install_dir="${RUNNER_TEMP}/godot"
+          template_dir="${HOME}/.local/share/godot/export_templates/${GODOT_VERSION}.stable"
+          mkdir -p "$download_dir" "$install_dir" "$template_dir"
+          cd "$download_dir"
+          curl --fail --location --retry 3 "$base_url/$editor" -o "$editor"
+          curl --fail --location --retry 3 "$base_url/$templates" -o "$templates"
+          curl --fail --location --retry 3 "$base_url/SHA512-SUMS.txt" -o SHA512-SUMS.txt
+          grep -F " $editor" SHA512-SUMS.txt > selected-checksums.txt
+          grep -F " $templates" SHA512-SUMS.txt >> selected-checksums.txt
+          sha512sum --check selected-checksums.txt
+          unzip -q "$editor" -d "$install_dir"
+          mv "$install_dir/Godot_v${release}_linux.x86_64" "$install_dir/godot"
+          chmod +x "$install_dir/godot"
+          unzip -q "$templates" 'templates/web_*' -d "$download_dir"
+          mv "$download_dir"/templates/web_* "$template_dir/"
+          echo "$install_dir" >> "$GITHUB_PATH"
+
+      - name: Import project
+        run: godot --headless --path . --editor --import
+
+      - name: Smoke test main scene
+        run: godot --headless --path . --quit-after 60
+
+      - name: Export for the web
+        run: |
+          mkdir -p build/web
+          godot --headless --path . --export-release Web build/web/index.html
+          test -s build/web/index.html
+          test -s build/web/index.js
+          test -s build/web/index.wasm
+          test -s build/web/index.pck
+
+      - name: Upload GitHub Pages artifact
+        if: github.ref == 'refs/heads/master' && github.event_name != 'pull_request'
+        uses: actions/upload-pages-artifact@v4
+        with:
+          path: build/web
+
+  deploy:
+    name: Deploy to GitHub Pages
+    if: github.ref == 'refs/heads/master' && github.event_name != 'pull_request'
+    needs: build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      pages: write
+      id-token: write
+    concurrency:
+      group: github-pages
+      cancel-in-progress: false
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Configure GitHub Pages
+        uses: actions/configure-pages@v5
+
+      - name: Deploy
+        id: deployment
+        uses: actions/deploy-pages@v4
