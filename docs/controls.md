@@ -42,15 +42,32 @@ Tune exported values on the player or in `scripts/player.gd`:
 
 Acceleration is limited along the desired direction, preserving perpendicular
 momentum for air strafing. This is Source-inspired movement, not a frame-exact
-Source engine port. Crouching, stair stepping, and Source-specific surf collision
-behavior are not implemented. Ramps use Godot's floor snapping and sliding.
+Source engine port. Crouching and stair stepping are not implemented. Ramps use
+Godot's floor snapping and sliding; surf ramps (below) use Source-style clipping.
 
 Input is centralized in the `Controls` autoload. Mouse look accumulates
 screen-relative deltas. Touch look tracks its own finger positions and converts
 the difference to screen pixels to avoid spurious browser multitouch deltas.
 Stick look uses angular speed multiplied by elapsed time.
 Sensitivity values live in `scripts/controls.gd`. The test arena has ramps,
-jump blocks, pillars, walls, a speed readout, and a fall-triggered respawn.
+jump blocks, pillars, walls, a surf ramp, a speed readout, and a fall-triggered respawn.
+
+## Surf ramp
+
+Counter-Strike style surfing lives along the left side of the arena. Climb the
+**SURF STAIRS** on the back wall to the start deck (7.5 m up), then drop onto
+the floating teal wedge. Its faces are 55° — steeper than the 45° floor limit —
+so you cannot stand on them. Hold strafe **toward** the ramp face to stay on it
+and steer with the mouse/stick like an air strafe; gravity builds speed as you
+surf down and across. You can also reach the ramp by bouncing on the pink floor
+tiles beside it and strafing onto a face. Fall off and you land on the floor.
+
+Any `StaticBody3D` in the `surf` group works. While airborne, hitting one of its
+upward-facing faces that is steeper than `floor_max_angle` removes only the
+velocity going into the face (Source's clip velocity); all speed along the face
+is kept. Vertical ends and walkable tops behave like normal geometry. Tune the
+wedge with the `SURF_*` constants in `scripts/arena.gd`. It is one prism mesh and
+one convex collider to stay cheap on mobile.
 
 ## Trampolines
 

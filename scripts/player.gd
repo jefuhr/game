@@ -1,6 +1,9 @@
 extends CharacterBody3D
 ## Source-inspired movement in meters/second; intentionally not an exact Source port.
 
+## Bodies in this group are surf ramps: steep faces clip velocity Source-style.
+const SURF_GROUP := &"surf"
+
 @export var max_speed := 7.0
 @export var ground_acceleration := 10.0
 @export var friction := 6.0
@@ -56,6 +59,8 @@ func _physics_process(delta: float) -> void:
 	var incoming := velocity
 	move_and_slide()
 	_bounced = _apply_trampolines(incoming)
+	if not _bounced:
+		_apply_surf(incoming)
 	if position.y < -15.0:
 		respawn()
 
@@ -76,6 +81,29 @@ func _apply_trampolines(incoming: Vector3) -> bool:
 			continue
 		var launch := minf(trampoline_min_launch + impact * trampoline_restitution, trampoline_max_launch)
 		velocity = incoming + face * (impact + launch)
+		return true
+	return false
+
+
+## Source-style surf: on a too-steep-to-stand, upward-facing surf face, only the
+## velocity into the face is removed, so all speed along the ramp is kept.
+## Holding strafe toward the face converts air acceleration into lift along it.
+func _apply_surf(incoming: Vector3) -> bool:
+	if is_on_floor():
+		return false
+	var steepest_floor_y := cos(floor_max_angle)
+	for i in get_slide_collision_count():
+		var collision := get_slide_collision(i)
+		var ramp := collision.get_collider() as Node
+		if ramp == null or not ramp.is_in_group(SURF_GROUP):
+			continue
+		var normal := collision.get_normal()
+		# Ignore vertical end caps, undersides, and walkable tops.
+		if normal.y <= 0.05 or normal.y >= steepest_floor_y:
+			continue
+		var into := incoming.dot(normal)
+		if into < 0.0:
+			velocity = incoming - normal * into
 		return true
 	return false
 
