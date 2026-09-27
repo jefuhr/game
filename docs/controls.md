@@ -2,11 +2,11 @@
 
 Click or tap the scene to start. A gamepad's bottom face button also starts play.
 
-| Input | Move | Look | Jump | Pause | Respawn |
-| --- | --- | --- | --- | --- | --- |
-| Keyboard/mouse | WASD or arrows | Captured mouse | Space | Escape | R |
-| Gamepad | Left stick | Right stick | A / Cross (bottom face button) | Start / Options | Back / Select |
-| Touch | Drag left side | Drag right side | Hold JUMP | Top pause button | Pause, then RESPAWN |
+| Input | Move | Look | Jump | Pause | Respawn | Music |
+| --- | --- | --- | --- | --- | --- | --- |
+| Keyboard/mouse | WASD or arrows | Captured mouse | Space | Escape | R | M or MUSIC button |
+| Gamepad | Left stick | Right stick | A / Cross (bottom face button) | Start / Options | Back / Select | — |
+| Touch | Drag left side | Drag right side | Hold JUMP | Top pause button | Pause, then RESPAWN | MUSIC button |
 
 Touch movement uses a floating stick anchored where the finger lands. Separate
 pointer IDs allow movement, look, and jump at the same time. Rotate the device
@@ -21,6 +21,14 @@ yet exposed it. Click the scene to capture the mouse when switching back to it.
 The **TOUCH: AUTO / ON** button, or **T**, can pin touch controls on. A disconnected
 active gamepad pauses the game and restores the available fallback. Leaving the
 window or losing pointer lock pauses and clears held input.
+
+## Background music
+
+The `Music` autoload (`scripts/music.gd`) generates a short looping chiptune-style
+pad in code, so no audio assets are required. The **MUSIC: ON / OFF** button below
+the TOUCH button, or **M**, mutes and unmutes it. The choice is saved in
+`user://settings.cfg` and restored on the next launch. Browsers only start audio
+after the first click or tap.
 
 ## Movement
 
