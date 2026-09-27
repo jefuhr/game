@@ -31,6 +31,10 @@ func frames(count: int) -> void:
 
 func run() -> void:
 	world = preload("res://scenes/main.tscn").instantiate()
+	# These speed assertions require unobstructed movement. A random citizen can
+	# intersect the route and change velocity through capsule contact/floor sliding.
+	# Player/NPC collisions are exercised separately in citizen_test.tscn.
+	world.get_node("Citizen").free()
 	add_child(world)
 	player = world.get_node("Player")
 	hud = world.get_node("CanvasLayer/HUD")
