@@ -111,9 +111,30 @@ func run() -> void:
 	check(Controls.device == Controls.Device.GAMEPAD and not Controls.touch_visible(), "Gamepad connection hides automatic touch controls")
 	Controls._joy_connection_changed(0, false)
 	check(Controls.touch_visible() and not Controls.playing, "Gamepad disconnect restores touch and pauses")
-	check(hud.master_watermark.begins_with("master / "), "Watermark is present")
+	check_watermark()
 	print("Controller checks: %d passed, %d failed" % [checks - failures, failures])
 	get_tree().quit(1 if failures else 0)
+
+
+func check_watermark() -> void:
+	var format := RegEx.new()
+	format.compile("^(PR #[1-9][0-9]* / [0-9a-f]{8} · )?master / ([0-9a-f]{8}|unstamped dev)$")
+	check(format.search(hud.master_watermark) != null, "Watermark has a valid production or preview format")
+	if not FileAccess.file_exists("res://build_info.json"):
+		check(hud.master_watermark == "master / unstamped dev", "Unstamped builds are identified")
+		return
+	var metadata = JSON.parse_string(FileAccess.get_file_as_string("res://build_info.json"))
+	if metadata is Dictionary:
+		var master: String = metadata.get("master_hash", "")
+		check(hud.master_watermark.ends_with("master / " + master.left(8)), "Watermark identifies the stamped master commit")
+		if metadata.has("preview_hash"):
+			var preview: String = metadata["preview_hash"]
+			var prefix := "PR #%d / %s · " % [int(metadata["pr_number"]), preview.left(8)]
+			check(hud.master_watermark.begins_with(prefix), "Preview watermark identifies the PR and tested head commit")
+		else:
+			check(not hud.master_watermark.begins_with("PR #"), "Production watermark has no PR label")
+	else:
+		check(false, "Build metadata must be a JSON object")
 
 
 func touch(index: int, point: Vector2, pressed: bool) -> void:

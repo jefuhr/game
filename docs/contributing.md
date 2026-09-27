@@ -16,6 +16,13 @@ builds the browser version. A TFPP member merges the pull request after the
 changes, update your branch and let the checks run again. Merging publishes the
 result to GitHub Pages.
 
+After a successful PR build, **Publish game and PR previews** publishes a playable
+preview and adds or updates a **Playable game preview** comment on the PR. Click
+**Play this build** in that comment to test on desktop or mobile before approving.
+The link identifies the PR commit and build attempt; the game also displays the
+PR commit alongside master in its watermark. Failed builds do not replace the
+last successful preview.
+
 Maintainers must enable the [branch protection settings](branch-protection.md)
 on GitHub to enforce this merge policy.
 
@@ -64,7 +71,9 @@ device check.
 
 The lower-right watermark shows `master / <8-character hash>` from build-time
 metadata. CI stamps the deployed commit on master; feature and PR builds show
-the fetched `origin/master` revision. Local stamps use the locally known
+the fetched `origin/master` revision. PR builds additionally show their PR number
+and head commit; `build_hash` records the proposed merge commit actually tested.
+Local stamps use the locally known
 `origin/master` (or `master` if no remote ref exists), so fetch first if you need
 the latest remote revision. Missing metadata shows `master / unstamped dev`.
 `build_info.json` is generated, ignored by Git, and explicitly included in Web
@@ -84,8 +93,43 @@ The [workflow](../.github/workflows/pages.yml) downloads Godot 4.7.2 and its off
 export templates, verifies their release checksums, imports the project, runs a
 short headless smoke test, and exports the Web build. Every branch push (including
 names such as `feature/my-change`) and pull requests targeting `master` run these
-build checks. Only `master` builds deploy to Pages, using
-GitHub's built-in token; no personal access token or repository secret is needed.
+build checks. Successful master and PR builds upload a `web-build` artifact.
+The separate [publishing workflow](../.github/workflows/publish-pages.yml) runs
+after successful builds and uses GitHub's built-in token to publish and comment;
+no personal access token or repository secret is needed.
+
+The publisher assembles one complete Pages site: the latest retained successful
+master build at `/game/`, and previews at
+`/game/previews/pr-<number>/<full-head-sha>/<run-id>-<attempt>/`. Separate paths
+prevent one preview's cached game files from being reused by another build.
+Re-running a build gets a new path even if the PR head commit has not changed.
+The publisher always runs trusted code from `master`; it only copies validated
+export files from PR artifacts and never executes those artifacts on the runner.
+Fork PRs use this same flow after GitHub's normal workflow-approval requirements.
+
+Preview retention is **14 days**, at most **12 recent PR commit previews**, with
+a **700 MiB** total site budget. The newest successful attempt for each PR commit
+is kept. Closed PRs and expired previews are removed at the next publication or
+the daily cleanup run. PR comments are updated after a successful deployment,
+including retiring expired links. The publisher reconstructs the full site under
+one concurrency group, so simultaneous PR builds preserve production and other
+retained previews. The constants are in `tools/publish_previews.py`.
+
+**Initial activation:** the publishing workflow must first be merged into the
+default branch (`master`), as required for GitHub's `workflow_run` trigger. Its
+first successful master build seeds production. Then push a new PR commit or
+rerun an existing PR build that includes the `web-build` upload step. This setup
+PR cannot activate its own publisher before it is merged. If master build
+artifacts eventually expire, run **Build and deploy web game** on master to
+refresh them; publishing fails safely rather than deleting the live game.
+
+For a deployment/comment failure, rerun **Publish game and PR previews** on
+master. The build check remains separate from publication; do not require the
+publishing workflow as a pre-merge check. Both workflows must be enabled, and
+organization policies must allow the publisher's declared token permissions.
+
+Publisher logic can be checked locally without tokens or network access:
+`python3 -m unittest discover -s tests -p 'test_*.py'`.
 
 The deployment URL appears in the workflow's `github-pages` environment and in
 **Settings → Pages**. The default URL for this repository is

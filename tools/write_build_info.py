@@ -25,6 +25,10 @@ def main() -> None:
     if not master:
         raise SystemExit("Cannot resolve master. Fetch origin master before stamping this build.")
     metadata = {"master_hash": master, "build_hash": revision("HEAD")}
+    if os.environ.get("GITHUB_EVENT_NAME") == "pull_request":
+        event = json.loads(Path(os.environ["GITHUB_EVENT_PATH"]).read_text())
+        metadata["preview_hash"] = event["pull_request"]["head"]["sha"]
+        metadata["pr_number"] = event["number"]
     (ROOT / "build_info.json").write_text(json.dumps(metadata, indent=2) + "\n")
     print(f"Watermark: master {master[:8]}")
 

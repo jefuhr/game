@@ -43,10 +43,16 @@ satisfy the pull request and build requirements.
 
 - Pushes to any branch run **Build web export**, including branch names with `/`.
 - Pull requests into `master` run the same check on GitHub's proposed merge commit.
-- Feature branches and pull requests never deploy to Pages.
-- Only a push to `master`, or a manual run on `master`, can deploy to Pages.
-- **Deploy to GitHub Pages** must not be a required pre-merge check: deployment
-  happens after merge.
+- Feature branch pushes validate builds; PR builds upload playable artifacts.
+- **Publish game and PR previews** runs from `master` after successful builds.
+  It publishes master at the site root and PR previews in separate subdirectories,
+  then adds or updates the PR's clickable preview comment.
+- Only successful master builds can change the production game. The publisher
+  copies validated PR export files without executing PR code with write permissions.
+- **Deploy production and PR previews** must not be a required pre-merge check:
+  it runs in the separate publishing workflow, not as a check on the PR commit.
+- Keep the `github-pages` environment restricted to `master`; PRs do not need
+  permission to deploy directly. The publisher itself runs from the default branch.
 
 Keep the **Build web export** job name stable, or update the required check in
 GitHub when renaming it. Do not add path filters that could prevent a required
