@@ -3,6 +3,9 @@ extends Node3D
 
 const CORNFLOWER_BLUE := Color("6495ed")
 const SCULPTURE_SPIN_SPEED := 0.6
+const TRAMPOLINE_COLOR := Color("e05ab4")
+## Group read by the player; a trampoline's local +Y face is its bouncy side.
+const TRAMPOLINE_GROUP := &"trampoline"
 
 var _sculpture_gem: Node3D
 
@@ -28,6 +31,7 @@ func _ready() -> void:
 	_box("CornflowerStepLow", Vector3(-13, 0.2, 18), Vector3(5, 0.4, 5), CORNFLOWER_BLUE)
 	_box("CornflowerStepHigh", Vector3(-13, 0.4, 18), Vector3(2.5, 0.8, 2.5), CORNFLOWER_BLUE.lightened(0.15))
 	_build_cornflower_sculpture(Vector3(14, 0, 14))
+	_build_trampoline_court()
 	_sign("AIR STRAFE / HOP", Vector3(-9, 2.6, -20))
 	_sign("RAMP / MOMENTUM", Vector3(8, 3.4, -16))
 	_sign("CORNFLOWER STEPS", Vector3(-13, 2.6, 18))
@@ -36,6 +40,29 @@ func _ready() -> void:
 func _process(delta: float) -> void:
 	if _sculpture_gem:
 		_sculpture_gem.rotate_y(SCULPTURE_SPIN_SPEED * delta)
+
+
+## Trampolines on a floor, ceiling, wall, and slope. Each is one cuboid whose
+## local +Y face bounces, so any rotation works.
+func _build_trampoline_court() -> void:
+	# Floor pad with a ceiling pad overhead: bounces escalate between them.
+	_trampoline("TrampolineFloor", Vector3(14, 0.125, 4), Vector3(3, 0.25, 3), Vector3.ZERO)
+	var frame_color := Color("7494a5")
+	_box("TrampolinePost", Vector3(12.05, 2.75, 4), Vector3(0.3, 5.5, 0.3), frame_color)
+	_box("TrampolinePost", Vector3(15.95, 2.75, 4), Vector3(0.3, 5.5, 0.3), frame_color)
+	_box("TrampolineRoof", Vector3(14, 5.75, 4), Vector3(4.2, 0.5, 4.2), frame_color)
+	_trampoline("TrampolineCeiling", Vector3(14, 5.35, 4), Vector3(3, 0.3, 3), Vector3(PI, 0, 0))
+	_sign("TRAMPOLINES", Vector3(14, 5.75, 6.12))
+	# Slope facing the right wall, and a pad mounted on that wall's inner face.
+	_trampoline("TrampolineSlope", Vector3(15, 0.75, -4), Vector3(2.5, 0.3, 2.5), Vector3(0, 0, deg_to_rad(-35)))
+	_trampoline("TrampolineWall", Vector3(19.6, 1.5, -4), Vector3(2.4, 0.3, 3), Vector3(0, 0, PI / 2))
+
+
+func _trampoline(label: String, center: Vector3, dimensions: Vector3, rot: Vector3) -> Node3D:
+	var pad := _box(label, center, dimensions, TRAMPOLINE_COLOR)
+	pad.rotation = rot
+	pad.add_to_group(TRAMPOLINE_GROUP)
+	return pad
 
 
 ## "Cornflower Twist": a twisting stack of cubes crowned by a spinning,

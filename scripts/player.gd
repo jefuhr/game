@@ -10,10 +10,15 @@ extends CharacterBody3D
 @export var gravity := 20.0
 @export var jump_speed := 7.0
 @export var auto_bunny_hop := true
+## Trampoline launch speed = min_launch + impact speed * restitution, capped.
+@export var trampoline_min_launch := 6.0
+@export var trampoline_restitution := 0.6
+@export var trampoline_max_launch := 24.0
 
 @onready var camera: Camera3D = $Camera3D
 var spawn_position := Vector3.ZERO
 var _jump_was_held := false
+var _bounced := false
 
 
 func _ready() -> void:
@@ -31,11 +36,14 @@ func _physics_process(delta: float) -> void:
 	var wish := global_basis * Vector3(input.x, 0, input.y)
 	var wish_speed := max_speed * input.length()
 	var wish_direction := wish.normalized()
+	# The floor state from a trampoline landing is stale: treat that frame as airborne.
+	var grounded := is_on_floor() and not _bounced
+	_bounced = false
 	var jump_held := Controls.jumping()
-	var jump_now := jump_held and (auto_bunny_hop or not _jump_was_held) and is_on_floor()
+	var jump_now := jump_held and (auto_bunny_hop or not _jump_was_held) and grounded
 	_jump_was_held = jump_held
 	# Jump before ground friction so a well-timed hop preserves horizontal momentum.
-	if is_on_floor() and not jump_now:
+	if grounded and not jump_now:
 		apply_friction(delta)
 		accelerate(wish_direction, wish_speed, ground_acceleration * wish_speed * delta)
 		velocity.y = 0.0
@@ -45,9 +53,31 @@ func _physics_process(delta: float) -> void:
 		velocity.y -= gravity * delta
 	if jump_now:
 		velocity.y = jump_speed
+	var incoming := velocity
 	move_and_slide()
+	_bounced = _apply_trampolines(incoming)
 	if position.y < -15.0:
 		respawn()
+
+
+## Reflects off the bouncy (+Y) face of any trampoline hit this frame, at any
+## orientation. Faster impacts give faster launches; tangential speed is kept.
+func _apply_trampolines(incoming: Vector3) -> bool:
+	for i in get_slide_collision_count():
+		var collision := get_slide_collision(i)
+		var pad := collision.get_collider() as Node3D
+		if pad == null or not pad.is_in_group(&"trampoline"):
+			continue
+		var face := pad.global_basis.y.normalized()
+		if collision.get_normal().dot(face) < 0.7:
+			continue
+		var impact := -incoming.dot(face)
+		if impact <= 0.01:
+			continue
+		var launch := minf(trampoline_min_launch + impact * trampoline_restitution, trampoline_max_launch)
+		velocity = incoming + face * (impact + launch)
+		return true
+	return false
 
 
 func accelerate(direction: Vector3, wish_speed: float, amount: float) -> void:
@@ -73,4 +103,5 @@ func respawn() -> void:
 	rotation = Vector3.ZERO
 	camera.rotation = Vector3.ZERO
 	_jump_was_held = false
+	_bounced = false
 	Controls.look_delta = Vector2.ZERO
